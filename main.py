@@ -74,8 +74,6 @@ def get_or_generate_image(image_id: str, prompt: str) -> bytes:
         future = Future()
         generation_queue.put((image_id, prompt, future))
         image_bytes = future.result()
-        future.set_result(image_bytes)
-        image_bytes = future.result()
 
     return image_bytes
 
@@ -95,7 +93,7 @@ def generation_worker() -> None:
             future.set_result(image_bytes)
 
         except Exception as e:
-            future.set_exection(e)
+            future.set_exception(e)
 
         finally:
             generation_queue.task_done()
