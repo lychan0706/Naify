@@ -5,7 +5,11 @@ import os
 import io
 import zipfile
 import time
+import threading
 
+
+from concurrent.futures import Future
+from queue import Queue
 from pathlib import Path
 from typing import Final
 
@@ -20,6 +24,7 @@ BASE_PROMPT: Final[str] = """1girl, -1::multiple views::, -5::artist collaborati
 NEGATIVE_PROMPT:Final[str] = """natsuki karin, text, logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist collaboration, variant set, large variant set, 4koma, 2koma, toon (style), chibi, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, old, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, cloudy eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, cheesy, unsatisfactory, inadequate, deficient, subpar, poor, displeasing, very displeasing, bad illustration, bad portrait, sketch, artist:xinzoruo, artist:milkpanda, makeup"""
 CACHE_DIR: Final[Path] = Path(__file__).resolve().parent / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
+generation_queue = Queue()
 
 # FastAPI 앱 생성
 app = fastapi.FastAPI(debug=False)
@@ -66,10 +71,34 @@ def get_or_generate_image(image_id: str, prompt: str) -> bytes:
         image_bytes = get_image_from_cache(image_id)
     else:
         print_log(f"{image_id} needs to be generated.")
-        image_bytes = generate_image(prompt=prompt)
-        save_image_to_cache(image_id=image_id, image_bytes=image_bytes)
+        future = Future()
+        generation_queue.put((image_id, prompt, future))
+        image_bytes = future.result()
+        future.set_result(image_bytes)
+        image_bytes = future.result()
 
     return image_bytes
+
+def generation_worker() -> None:
+    while True:
+        image_id, prompt, future = generation_queue.get()
+
+        try:
+            image_path = CACHE_DIR / f"{image_id}.webp"
+
+            if image_path.is_file():
+                image_bytes = get_image_from_cache(image_id)
+            else:
+                image_bytes = generate_image(prompt)
+                save_image_to_cache(image_id, image_bytes)
+
+            future.set_result(image_bytes)
+
+        except Exception as e:
+            future.set_exection(e)
+
+        finally:
+            generation_queue.task_done()
 
 def get_image_from_cache(image_id: str) -> bytes:
     """
@@ -220,6 +249,13 @@ def get_image(image_id: str, prompt: str) -> fastapi.Response:
     print_log(f"Total Elapsed : {round(total_elapsed,2)}sec")
 
     return requested_webp
+
+worker_thread = threading.Thread(
+    target=generation_worker,
+    daemon=True
+)
+
+worker_thread.start()
 
 # 서버 실행
 if __name__ == "__main__":
