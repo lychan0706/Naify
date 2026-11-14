@@ -18,7 +18,7 @@ HEIGHT: Final[int] = 832
 STEPS: Final[int] = 28
 BASE_PROMPT: Final[str] = """1girl, -1::multiple views::, -5::artist collaboration::, year 2025, year 2024, newest, 1.7::artist:umigraphics, artist:hoo bamon::, 2.5::artist:sofra::, 3.0::artist:maratang::, 1.5::artist:ratatatat74 ::, 1.4::artist:norisukexxy::, 1.1::artist:ms. tsu::, 0.9::artist:yomu (sgt epper)::, 0.7::artist:wanke::, 0.5::artist:kurono mitsuki ::,  -3::child::, flat chest, 4::3d, blender (medium), flat color, cel rendering, hatching (texture)::, -3::unfinished, sketch, outline::, pale color, 2::official art, best illustration::, masterpiece, best quality, very aesthetic, incredibly absurdres, highly detailed"""
 NEGATIVE_PROMPT:Final[str] = """natsuki karin, text, logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist collaboration, variant set, large variant set, 4koma, 2koma, toon (style), chibi, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, old, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, cloudy eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, cheesy, unsatisfactory, inadequate, deficient, subpar, poor, displeasing, very displeasing, bad illustration, bad portrait, sketch, artist:xinzoruo, artist:milkpanda, makeup"""
-CACHE_DIR: Final[Path] = Path(__file__).resolve().parent / ".gitignore/cache"
+CACHE_DIR: Final[Path] = Path(__file__).resolve().parent / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # FastAPI 앱 생성
@@ -202,7 +202,6 @@ def get_image(image_id: str, prompt: str) -> fastapi.Response:
     Returns:
         fastapi.Response: WebP 이미지가 포함된 HTTP 응답.
     """
-
     image_bytes: bytes
     requested_webp: fastapi.Response
 
@@ -227,4 +226,4 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
 
-# url : http://127.0.0.1:8000/get_image/virtual?prompt=girl
+# url : http://127.0.0.1:8000/get_image/A00001?prompt=girl
