@@ -20,8 +20,45 @@ MODEL: Final[str] = "nai-diffusion-4-5-full"
 WIDTH: Final[int] = 1216
 HEIGHT: Final[int] = 832
 STEPS: Final[int] = 28
-BASE_PROMPT: Final[str] = """1girl, -1::multiple views::, -5::artist collaboration::, year 2025, year 2024, newest, 1.7::artist:umigraphics, artist:hoo bamon::, 2.5::artist:sofra::, 3.0::artist:maratang::, 1.5::artist:ratatatat74 ::, 1.4::artist:norisukexxy::, 1.1::artist:ms. tsu::, 0.9::artist:yomu (sgt epper)::, 0.7::artist:wanke::, 0.5::artist:kurono mitsuki ::,  -3::child::, flat chest, 4::3d, blender (medium), flat color, cel rendering, hatching (texture)::, -3::unfinished, sketch, outline::, pale color, 2::official art, best illustration::, masterpiece, best quality, very aesthetic, incredibly absurdres, highly detailed"""
-NEGATIVE_PROMPT:Final[str] = """natsuki karin, text, logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist collaboration, variant set, large variant set, 4koma, 2koma, toon (style), chibi, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, old, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, cloudy eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, cheesy, unsatisfactory, inadequate, deficient, subpar, poor, displeasing, very displeasing, bad illustration, bad portrait, sketch, artist:xinzoruo, artist:milkpanda, makeup"""
+# BASE_PROMPT: Final[str] = """1girl, -1::multiple views::, -5::artist collaboration::, year 2025, year 2024, newest, 1.7::artist:umigraphics, artist:hoo bamon::, 2.5::artist:sofra::, 3.0::artist:maratang::, 1.5::artist:ratatatat74 ::, 1.4::artist:norisukexxy::, 1.1::artist:ms. tsu::, 0.9::artist:yomu (sgt epper)::, 0.7::artist:wanke::, 0.5::artist:kurono mitsuki ::,  -3::child::, flat chest, 4::3d, blender (medium), flat color, cel rendering, hatching (texture)::, -3::unfinished, sketch, outline::, pale color, 2::official art, best illustration::, masterpiece, best quality, very aesthetic, incredibly absurdres, highly detailed"""
+BASE_PROMPT: Final[str] = """1girl, -1::multiple views::, 3d, 
+
+0.9::artist:teshima nari::, 
+1.9::artist:ie (raarami)::, 
+1.5::artist:umigraphics, artist:hoo bamon::, 
+0.9::artist:gogalking::, 
+1.7::artist:ratatatat74 ::, 
+1.7::artist:yomu (sgt epper)::, 
+2.5::artist:sofra::, 
+1.5::artist:ms. tsu::, 
+1.1::artist:2n5 ::, 
+0.5::artist:teshima nari::, 
+
+-5::artist collaboration::, year 2025, year 2024, newest, 
+
+flat color, -1::nose, lips::, dot nose, pale color, 
+
+-2::big hair::, 0.5::expressionless::, mature female, -2::child::, -1::loli::, -3::muscular::, -1::skinny::, 3::small breasts::, flat chest, 
+
+-2::simple illustration, simple background::, detailed background, 2::official art, commission, best illustration, clear image, blender (medium), photoshop (medium)::, masterpiece, best quality, very aesthetic, incredibly absurdres, highly detailed,
+full body, ::cowboy shot::, -2::portrait, straight-on::, 4::dutch angle:: 
+"""
+# NEGATIVE_PROMPT:Final[str] = """natsuki karin, text, logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist collaboration, variant set, large variant set, 4koma, 2koma, toon (style), chibi, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, old, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, cloudy eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, cheesy, unsatisfactory, inadequate, deficient, subpar, poor, displeasing, very displeasing, bad illustration, bad portrait, sketch, artist:xinzoruo, artist:milkpanda, makeup"""
+NEGATIVE_PROMPT:Final[str] = """text, logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, 
+
+artist collaboration, 
+
+variant set, large variant set, 4koma, 2koma, toon (style), chibi, turnaround, 
+
+film grain, monochrome, dithering, halftone, screentones, dated, old, 1990s (style), 
+
+mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, cloudy eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, 
+
+multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, 
+
+worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, cheesy, unsatisfactory, inadequate, deficient, subpar, poor, displeasing, very displeasing, bad illustration, bad portrait, sketch, 
+
+artist:xinzoruo, artist:milkpanda, makeup, """
 CACHE_DIR: Final[Path] = Path(__file__).resolve().parent / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 generation_queue = Queue()
@@ -30,12 +67,12 @@ generation_queue = Queue()
 app = fastapi.FastAPI(debug=False)
 
 # 유틸리티 함수 선언
-def print_log(content: str) -> None:
+def print_log(image_id:str = "SERVER", content: str = "") -> None:
     """
     현재 시각을 HH:MM:SS 형식으로 표시하고 로그를 출력한다.
     """
     timestamp = time.strftime("%H:%M:%S")
-    print(f"[{timestamp}] {content}")
+    print(f"[{image_id}] {timestamp} - {content}")
 
 def get_anlas_balance() -> int | None:
     """
@@ -55,7 +92,7 @@ def get_anlas_balance() -> int | None:
         anlas_data = subscription_info_response.json().get("trainingStepsLeft")
         remaining_anlas = anlas_data["fixedTrainingStepsLeft"] + anlas_data["purchasedTrainingSteps"]
     except Exception as e:
-        print_log(f"잔여 Anlas 조회 실패: {e}")
+        print_log(content=f"잔여 Anlas 조회 실패: {e}")
         return None
     else:
         return remaining_anlas
@@ -67,10 +104,10 @@ def get_or_generate_image(image_id: str, prompt: str) -> bytes:
     is_cached = image_path.is_file()
 
     if is_cached:
-        print_log(f"{image_id} is cached.")
+        print_log(image_id, "getting image from cache")
         image_bytes = get_image_from_cache(image_id)
     else:
-        print_log(f"{image_id} needs to be generated.")
+        print_log(image_id, "generating")
         future = Future()
         generation_queue.put((image_id, prompt, future))
         image_bytes = future.result()
@@ -87,7 +124,7 @@ def generation_worker() -> None:
             if image_path.is_file():
                 image_bytes = get_image_from_cache(image_id)
             else:
-                image_bytes = generate_image(prompt)
+                image_bytes = generate_image(image_id, prompt)
                 save_image_to_cache(image_id, image_bytes)
 
             future.set_result(image_bytes)
@@ -113,10 +150,8 @@ def get_image_from_cache(image_id: str) -> bytes:
 
     return image_bytes
 
-def generate_image(prompt: str) -> bytes:
+def generate_image(image_id: str, prompt: str) -> bytes:
     initial_anlas = get_anlas_balance()
-
-    prompt += f", text:\"{time.strftime("%Y/%m/%d %H:%M:%S")}\""
 
     generation_response = httpx.post(
             timeout=120.0,
@@ -190,7 +225,7 @@ def generate_image(prompt: str) -> bytes:
     remaining_anlas = get_anlas_balance()
     if initial_anlas is not None and remaining_anlas is not None:
         used_anlas = initial_anlas - remaining_anlas
-        print_log(f"Anlas Used : {used_anlas}*")
+        print_log(image_id, f"{used_anlas} Anlas")
     
     return image_bytes
 
@@ -234,7 +269,7 @@ def get_image(image_id: str, prompt: str) -> fastapi.Response:
 
     process_initiation_time = time.perf_counter()
 
-    print_log(f"got request for image id: {image_id}")
+    print_log(image_id, "Requested")
 
     image_bytes = get_or_generate_image(image_id=image_id, prompt=prompt)
     requested_webp = fastapi.Response(
@@ -244,7 +279,7 @@ def get_image(image_id: str, prompt: str) -> fastapi.Response:
 
     process_termination_time = time.perf_counter()
     total_elapsed = process_termination_time - process_initiation_time
-    print_log(f"Total Elapsed : {round(total_elapsed,2)}sec")
+    print_log(image_id, f"{round(total_elapsed,2)}sec")
 
     return requested_webp
 
