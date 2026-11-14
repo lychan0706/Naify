@@ -152,6 +152,10 @@ def get_image_from_cache(image_id: str) -> bytes:
 
 def generate_image(image_id: str, prompt: str) -> bytes:
     initial_anlas = get_anlas_balance()
+    
+    prompt = prompt.replace("_", " ")
+    prompt = prompt.replace(",", ", ")
+    prompt = prompt.replace(",  ", ", ")
 
     generation_response = httpx.post(
             timeout=120.0,
@@ -293,6 +297,6 @@ worker_thread.start()
 # 서버 실행
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, access_log=False)
 
 # url : http://127.0.0.1:8000/get_image/A00001?prompt=girl
