@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Final
-from core.config import CACHE_LIMIT_BYTES
-from core.utility import print_log
+from core.naify_utility import print_log
+from core.naify_config import CacheConfig
 
 CACHE_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -31,8 +31,6 @@ def save_image_to_cache(image_id: str, image_bytes: bytes) -> None:
     image_path = CACHE_DIR / f"{image_id}.webp"
     image_path.write_bytes(image_bytes)
 
-    trim_cache()
-
     return
 
 def get_cache_size() -> int:
@@ -44,7 +42,7 @@ def get_cache_size() -> int:
     
     return cache_size
 
-def trim_cache() -> None:
+def trim_cache(cache_config: CacheConfig) -> None:
     cache_size = get_cache_size()
     cache_images = CACHE_DIR.glob("*.webp")
     
@@ -53,7 +51,7 @@ def trim_cache() -> None:
         key=lambda cache_image: cache_image.stat().st_mtime
     )
     
-    while cache_size > CACHE_LIMIT_BYTES:
+    while cache_size > cache_config.max_cache_size:
         oldest_image = cache_images.pop(0)
         cache_size -= oldest_image.stat().st_size
         oldest_image.unlink()

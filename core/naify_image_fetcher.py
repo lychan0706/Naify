@@ -1,11 +1,11 @@
 from concurrent.futures import Future
 from queue import Queue
 from hashlib import sha256
-from core.cache import CACHE_DIR, get_image_from_cache
-from core.novelAI import generate_image
-from core.utility import print_log
-from core.cache import save_image_to_cache
-from core.config import NaifyConfig
+from core.naify_cache import CACHE_DIR, get_image_from_cache
+from core.naify_api_work import generate_image
+from core.naify_utility import print_log
+from core import naify_cache
+from core.naify_config import NaifyConfig
 
 
 generation_request_queue = Queue()
@@ -28,7 +28,11 @@ def fetch_image(image_id: str, config: NaifyConfig, prompt: str) -> bytes:
     return image_bytes
 
 
-def generation_request_worker() -> None:
+def generation_request_queue_processor() -> None:
+    """
+    이미지 생성 요청 큐의 요청들을 관리하는 함수.
+    캐시를 재조회해 중복 생성을 막는다.
+    """
     while True:
         image_id, config, prompt, future = generation_request_queue.get()
 
@@ -38,8 +42,9 @@ def generation_request_worker() -> None:
             if image_path.is_file():
                 image_bytes = get_image_from_cache(image_id)
             else:
-                image_bytes = generate_image(image_id, config, prompt)
-                save_image_to_cache(image_id, image_bytes)
+                image_bytes = generate_image(config, prompt)
+                naify_cache.save_image_to_cache(image_id, image_bytes)
+                naify_cache.trim_cache(config.cache)
 
             future.set_result(image_bytes)
 

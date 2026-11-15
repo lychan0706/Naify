@@ -2,12 +2,16 @@
 import fastapi
 import time
 import threading
-from core import image_fetcher 
-from core.utility import print_log
-from core.novelAI import get_anlas_balance
+from core import naify_image_fetcher 
+from core.naify_utility import print_log
+from core.naify_api_work import get_anlas_balance
+from core.naify_config import NaifyConfig, load_config
 
 # FastAPI 앱 생성
 app = fastapi.FastAPI(debug=False)
+
+# Config 가져오기
+naify_config: NaifyConfig = load_config()
 
 # 라우트 선언
 @app.get("/get_image")
@@ -19,7 +23,7 @@ def get_image(prompt: str) -> fastapi.Response:
         fastapi.Response: WebP 이미지가 포함된 HTTP 응답.
     """
     # 이미지 id 생성
-    image_id: str = image_fetcher.make_image_id(prompt)
+    image_id: str = naify_image_fetcher.make_image_id(prompt)
 
     # 초기 상태 기록
     process_initiation_time = time.perf_counter()
@@ -29,7 +33,7 @@ def get_image(prompt: str) -> fastapi.Response:
     print_log(image_id, "Requested")
 
     # 이미지 제공
-    image_bytes = image_fetcher.fetch_image(image_id=image_id, prompt=prompt)
+    image_bytes = naify_image_fetcher.fetch_image(image_id=image_id, config=naify_config, prompt=prompt)
     requested_webp = fastapi.Response(
         content=image_bytes,
         media_type="image/webp"
@@ -50,7 +54,7 @@ def get_image(prompt: str) -> fastapi.Response:
 
 # 스레드 설정
 worker_thread = threading.Thread(
-    target=image_fetcher.generation_request_worker,
+    target=naify_image_fetcher.generation_request_queue_processor,
     daemon=True
 )
 

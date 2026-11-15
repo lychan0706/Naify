@@ -2,9 +2,9 @@ import fastapi
 import httpx
 from typing import Final
 
-from core.utility import extract_image_from_zip, print_log
-from core.config import NAI_API_KEY
-from core.config import NaifyConfig
+from core.naify_utility import extract_image_from_zip, print_log
+from core.naify_config import NAI_API_KEY
+from core.naify_config import NaifyConfig
 
 
 NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"
