@@ -1,13 +1,12 @@
 from typing import Final
-
 import fastapi
-
-from Naify.core.config import BASE_PROMPT, HEIGHT, MODEL, NAI_API_KEY, STEPS, WIDTH
-from Naify.core.utility import extract_image_from_zip, print_log
-from Naify.core.config import NEGATIVE_PROMPT
-
-
+from core.config import BASE_PROMPT, HEIGHT, MODEL, NAI_API_KEY, STEPS, WIDTH
+from core.utility import extract_image_from_zip, print_log
+from core.config import NEGATIVE_PROMPT
 import httpx
+
+
+NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"
 
 
 def get_anlas_balance() -> int | None:
@@ -32,9 +31,6 @@ def get_anlas_balance() -> int | None:
         return None
     else:
         return remaining_anlas
-
-
-NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"
 
 
 def generate_image(image_id: str, prompt: str) -> bytes:
