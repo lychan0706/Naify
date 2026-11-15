@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Final
-from config import CACHE_LIMIT_BYTES
-from utility import print_log
+from core.config import CACHE_LIMIT_BYTES
+from core.utility import print_log
 
 CACHE_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)

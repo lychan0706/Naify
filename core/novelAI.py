@@ -1,9 +1,10 @@
-from typing import Final
 import fastapi
-from core.config import BASE_PROMPT, HEIGHT, MODEL, NAI_API_KEY, STEPS, WIDTH
-from core.utility import extract_image_from_zip, print_log
-from core.config import NEGATIVE_PROMPT
 import httpx
+from typing import Final
+
+from core.utility import extract_image_from_zip, print_log
+from core.config import NAI_API_KEY
+from core.config import NaifyConfig
 
 
 NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"
@@ -33,8 +34,7 @@ def get_anlas_balance() -> int | None:
         return remaining_anlas
 
 
-def generate_image(image_id: str, prompt: str) -> bytes:
-    initial_anlas = get_anlas_balance()
+def generate_image(naify_config: NaifyConfig, prompt: str) -> bytes:
 
     prompt = prompt.replace("_", " ")
     prompt = prompt.replace(",", ", ")
@@ -46,22 +46,22 @@ def generate_image(image_id: str, prompt: str) -> bytes:
             headers={"Authorization": f"Bearer {NAI_API_KEY}"},
             json = {
                 "action": "generate",
-                "input": BASE_PROMPT,
-                "model": MODEL,
+                "input": naify_config.prompt.base_prompt,
+                "model": naify_config.generation.model,
                 "parameters": {
-                    "width": WIDTH,
-                    "height": HEIGHT,
+                    "width": naify_config.generation.width,
+                    "height": naify_config.generation.height,
                     "n_samples": 1,
-                    "steps": STEPS,
-                    "scale": 7,
-                    "sampler": "k_euler_ancestral",
-                    "noise_schedule": "karras",
-                    "cfg_rescale": 0.4,
+                    "steps": naify_config.generation.steps,
+                    "scale": naify_config.generation.prompt_guidance,
+                    "sampler": naify_config.generation.sampler,
+                    "noise_schedule": naify_config.generation.noise_schedule,
+                    "cfg_rescale": naify_config.generation.prompt_guidance_rescale,
                     "params_version": 3,
                     "image_format": "webp",
                     "v4_prompt": {
                         "caption": {
-                            "base_caption": BASE_PROMPT,
+                            "base_caption": naify_config.prompt.base_prompt,
                             "char_captions": [
                                 {
                                     "char_caption": prompt,
@@ -79,7 +79,7 @@ def generate_image(image_id: str, prompt: str) -> bytes:
                     },
                     "v4_negative_prompt": {
                         "caption": {
-                            "base_caption": NEGATIVE_PROMPT,
+                            "base_caption": naify_config.prompt.negative_prompt,
                             "char_captions": [
                                 {
                                     "char_caption": "",
@@ -108,10 +108,5 @@ def generate_image(image_id: str, prompt: str) -> bytes:
         )
 
     image_bytes = extract_image_from_zip(zip_data=generation_response.content)
-
-    remaining_anlas = get_anlas_balance()
-    if initial_anlas is not None and remaining_anlas is not None:
-        used_anlas = initial_anlas - remaining_anlas
-        print_log(image_id, f"{used_anlas} Anlas")
 
     return image_bytes
