@@ -48,11 +48,12 @@ def trim_cache(cache_config: CacheConfig) -> None:
     
     cache_images = sorted(
         cache_images, 
-        key=lambda cache_image: cache_image.stat().st_mtime
+        key=lambda cache_image: cache_image.stat().st_mtime,
+        reverse=True
     )
     
-    while cache_size > cache_config.max_cache_size:
-        oldest_image = cache_images.pop(0)
+    while (cache_size > cache_config.max_cache_size or len(cache_images) > cache_config.max_images) and cache_images:
+        oldest_image = cache_images.pop()
         cache_size -= oldest_image.stat().st_size
         oldest_image.unlink()
 

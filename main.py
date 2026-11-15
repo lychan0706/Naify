@@ -27,7 +27,7 @@ def get_image(prompt: str) -> fastapi.Response:
 
     # 초기 상태 기록
     process_initiation_time = time.perf_counter()
-    initial_anlas = get_anlas_balance()
+    # initial_anlas = get_anlas_balance()
 
     
     print_log(image_id, "Requested")
@@ -40,10 +40,10 @@ def get_image(prompt: str) -> fastapi.Response:
     )
 
     # 잔여 Anlas 계산
-    remaining_anlas = get_anlas_balance()
-    if initial_anlas is not None and remaining_anlas is not None:
-        used_anlas = initial_anlas - remaining_anlas
-        print_log(image_id, f"{used_anlas} Anlas")
+    # remaining_anlas = get_anlas_balance()
+    # if initial_anlas is not None and remaining_anlas is not None:
+    #     used_anlas = initial_anlas - remaining_anlas
+    #     print_log(image_id, f"{used_anlas} Anlas")
 
     # 소요 시간 계산
     process_termination_time = time.perf_counter()
