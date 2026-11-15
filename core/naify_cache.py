@@ -25,9 +25,6 @@ def get_image_from_cache(image_id: str) -> bytes:
 
 def save_image_to_cache(image_id: str, image_bytes: bytes) -> None:
 
-    if image_id == "virtual":
-        return
-
     image_path = CACHE_DIR / f"{image_id}.webp"
     image_path.write_bytes(image_bytes)
 

@@ -52,6 +52,7 @@ def generate_image(naify_config: NaifyConfig, prompt: str) -> bytes:
                     "width": naify_config.generation.width,
                     "height": naify_config.generation.height,
                     "n_samples": 1,
+                    "negative_prompt": naify_config.prompt.negative_prompt,
                     "steps": naify_config.generation.steps,
                     "scale": naify_config.generation.prompt_guidance,
                     "sampler": naify_config.generation.sampler,

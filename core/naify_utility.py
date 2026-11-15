@@ -8,7 +8,7 @@ def print_log(image_id:str = "SERVER", content: str = "") -> None:
     """
     
     timestamp = time.strftime("%H:%M:%S")
-    print(f"[{image_id}] {timestamp} - {content}")
+    print(f"[{timestamp}] {image_id} : {content}")
 
 
 def extract_image_from_zip(zip_data: bytes) -> bytes:

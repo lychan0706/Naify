@@ -4,8 +4,10 @@ import time
 import threading
 from core import naify_image_fetcher 
 from core.naify_utility import print_log
-from core.naify_api_work import get_anlas_balance
-from core.naify_config import NaifyConfig, load_config
+# from core.naify_api_work import get_anlas_balance
+from core.naify_config import NaifyConfig, load_config, save_config
+from fastapi.responses import FileResponse
+from fastapi import Body
 
 # FastAPI 앱 생성
 app = fastapi.FastAPI(debug=False)
@@ -14,6 +16,34 @@ app = fastapi.FastAPI(debug=False)
 naify_config: NaifyConfig = load_config()
 
 # 라우트 선언
+@app.get("/")
+def home() -> FileResponse:
+
+    print_log(content="got home request")
+
+    response: FileResponse = FileResponse("web/index.html")
+
+    return response
+
+@app.get("/config")
+def get_config() -> fastapi.Response:
+
+    print_log(content="got config request")
+
+    config = naify_config
+
+    return config
+
+@app.put("/config")
+def update_config(config: NaifyConfig) -> None:
+    global naify_config
+    
+    naify_config = config
+
+    save_config(naify_config)
+
+    print_log(content="config updated")
+
 @app.get("/get_image")
 def get_image(prompt: str) -> fastapi.Response:
     """
@@ -27,9 +57,7 @@ def get_image(prompt: str) -> fastapi.Response:
 
     # 초기 상태 기록
     process_initiation_time = time.perf_counter()
-    # initial_anlas = get_anlas_balance()
 
-    
     print_log(image_id, "Requested")
 
     # 이미지 제공
@@ -38,12 +66,6 @@ def get_image(prompt: str) -> fastapi.Response:
         content=image_bytes,
         media_type="image/webp"
     )
-
-    # 잔여 Anlas 계산
-    # remaining_anlas = get_anlas_balance()
-    # if initial_anlas is not None and remaining_anlas is not None:
-    #     used_anlas = initial_anlas - remaining_anlas
-    #     print_log(image_id, f"{used_anlas} Anlas")
 
     # 소요 시간 계산
     process_termination_time = time.perf_counter()
@@ -65,4 +87,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, access_log=False)
 
-# url : http://127.0.0.1:8000/get_image/?prompt=girl
+# url : 
+# http://127.0.0.1:8000/
+# http://127.0.0.1:8000/config
+# http://127.0.0.1:8000/get_image?prompt=1girl

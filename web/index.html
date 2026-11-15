@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Naify Manager</title>
+    </head>
+
+
+    <body>
+        <h1>Naify Manager</h1>
+            <p>Welcome to Naify v0.2.1dev</p>
+
+            <hr>
+            <h2>Generation Settings</h2>
+
+            <div>
+                <label for="model">Model:</label>
+                <select id="model">
+                    <option value="nai-diffusion-4-5-full">NAI Diffusion 4.5 Full</option>
+                    <option value="nai-diffusion-4-5-curated">NAI Diffusion 4.5 Curated</option>
+                    <option value="nai-diffusion-5-full">NAI Diffusion 5 Full</option>
+                    <option value="nai-diffusion-5-curated">NAI Diffusion 5 Curated</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="width">Width:</label>
+                <input type="number" id="width" min="64" step="64" value="1216">
+            </div>
+
+            <div>
+                <label for="height">Height:</label>
+                <input type="number" id="height" min="64" step="64" value="832">
+            </div>
+
+            <div>
+                <label for="steps">Steps:</label>
+                <input type="number" id="steps" min="1" max="50" value="28">
+            </div>
+
+            <div>
+                <label for="prompt_guidance">Prompt Guidance:</label>
+                <input type="number" id="prompt_guidance" min="0" max="10" step="0.1" value="5">
+            </div>
+
+            <div>
+                <label for="seed">Seed:</label>
+                <input type="number" id="seed">
+            </div>
+
+            <div>
+                <label for="sampler">Sampler:</label>
+                <select id="sampler">
+                    <option value="k_euler_ancestral">Euler Ancestral</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="prompt_guidance_rescale">Prompt Guidance Rescale:</label>
+                <input type="number" id="prompt_guidance_rescale" min="0" max="1" step="0.01" value="0.0">
+            </div>
+
+            <div>
+                <label for="noise_schedule">Noise Schedule:</label>
+                <select id="noise_schedule">
+                    <option value="karras">karras</option>
+                    <option value="exponential">exponential</option>
+                    <option value="polyexponential">polyexponential</option>
+                </select>
+            </div>
+
+            <hr>
+
+            <h2>Prompt Settings</h2>
+
+            <div>
+                <label for="base_prompt">Base Prompt:</label><br>
+                <textarea id="base_prompt" rows="8" cols="80"></textarea>
+            </div>
+
+            <div>
+                <label for="negative_prompt">Negative Prompt:</label><br>
+                <textarea id="negative_prompt" rows="8" cols="80"></textarea>
+            </div>
+
+            <hr>
+
+            <h2>Cache Settings</h2>
+
+            <div>
+                <label for="max_cache_size">Maximum Cache Size (Bytes):</label>
+                <input type="number" id="max_cache_size" min="1">
+            </div>
+
+            <div>
+                <label for="max_images">Maximum Images:</label>
+                <input type="number" id="max_images" min="1">
+            </div>
+
+            <hr>
+
+            <p id="save-status"></p>
+            <button id="save-button">Save Settings</button>
+            
+
+            <script>
+                async function loadConfig() {
+                    const response = await fetch("/config");
+                    const naify_config = await response.json();
+
+                    const model = document.getElementById("model");
+                    const width = document.getElementById("width");
+                    const height = document.getElementById("height");
+                    const steps = document.getElementById("steps");
+                    const prompt_guidance = document.getElementById("prompt_guidance");
+                    const seed = document.getElementById("seed");
+                    const sampler = document.getElementById("sampler");
+                    const prompt_guidance_rescale = document.getElementById("prompt_guidance_rescale");
+                    const noise_schedule = document.getElementById("noise_schedule");
+                    const base_prompt = document.getElementById("base_prompt");
+                    const negative_prompt = document.getElementById("negative_prompt");
+                    const max_cache_size = document.getElementById("max_cache_size");
+                    const max_images = document.getElementById("max_images");
+                    
+                    console.log(naify_config.prompt.base_prompt);
+                    
+                    model.value = naify_config.generation.model;
+                    width.value = naify_config.generation.width;
+                    height.value = naify_config.generation.height;
+                    steps.value = naify_config.generation.steps;
+                    prompt_guidance.value = naify_config.generation.prompt_guidance;
+                    seed.value = naify_config.generation.seed;
+                    sampler.value = naify_config.generation.sampler;
+                    prompt_guidance_rescale.value = naify_config.generation.prompt_guidance_rescale;
+                    noise_schedule.value = naify_config.generation.noise_schedule;
+                    base_prompt.value = naify_config.prompt.base_prompt;
+                    negative_prompt.value = naify_config.prompt.negative_prompt;
+                    max_cache_size.value = naify_config.cache.max_cache_size;
+                    max_images.value = naify_config.cache.max_images;
+                }
+
+                async function putConfig() {
+                    const model = document.getElementById("model").value
+                    const width = Number(document.getElementById("width").value);
+                    const height = Number(document.getElementById("height").value);
+                    const steps = Number(document.getElementById("steps").value);
+                    const prompt_guidance = Number(document.getElementById("prompt_guidance").value);
+                    const seed = Number(document.getElementById("seed").value);
+                    const sampler = document.getElementById("sampler").value;
+                    const prompt_guidance_rescale = Number(document.getElementById("prompt_guidance_rescale").value);
+                    const noise_schedule = document.getElementById("noise_schedule").value;
+                    const base_prompt = document.getElementById("base_prompt").value;
+                    const negative_prompt = document.getElementById("negative_prompt").value;
+                    const max_cache_size = Number(document.getElementById("max_cache_size").value);
+                    const max_images = Number(document.getElementById("max_images").value);
+
+                    const data = {
+                        generation: {
+                            model,
+                            width,
+                            height,
+                            steps,
+                            prompt_guidance,
+                            seed,
+                            sampler,
+                            prompt_guidance_rescale,
+                            noise_schedule
+                        },
+                        prompt: {
+                            base_prompt,
+                            negative_prompt
+                        },
+                        cache: {
+                            max_cache_size,
+                            max_images
+                        }
+                    };
+
+                    const response = await fetch("/config", {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const status = document.getElementById("save-status");
+
+                    if (response.ok) {
+                        status.textContent = "Settings saved!";
+                        status.style.color = "green";
+                
+                        await loadConfig();
+                    } else {
+                        status.textContent = "Failed to save settings!";
+                        status.style.color = "red";
+                    }
+                }
+
+                loadConfig();
+
+                const saveButton  = document.getElementById("save-button");
+                saveButton.addEventListener("click", putConfig);
+            </script>
+    </body>
+</html>
