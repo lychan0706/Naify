@@ -70,6 +70,20 @@
         </section>
     </main>
 
+    <!-- 캐시 갤러리는 필요할 때만 펼치며, 이미지들은 최신순으로 표시한다. -->
+    <details class="settings-card cache-gallery-panel" id="cache-gallery-panel">
+        <summary>캐시 이미지 확인 <span class="summary-hint">클릭하여 펼치기</span></summary>
+        <div class="cache-gallery-content">
+            <p id="cache-status" role="status">캐시 현황을 확인하는 중...</p>
+            <div class="cache-gallery-actions">
+                <button type="button" id="refresh-cache">목록 새로고침</button>
+                <button type="button" id="clear-cache" class="danger-button">캐시 전체 삭제</button>
+            </div>
+            <p id="cache-action-status" role="status"></p>
+            <div id="cache-gallery" class="cache-gallery" aria-live="polite"></div>
+        </div>
+    </details>
+
     <!-- 자주 바꾸지 않는 API 키는 페이지 맨 아래에서 필요할 때만 펼침 -->
     <details class="settings-card api-key-panel">
         <summary>NovelAI API 키 관리 <span class="summary-hint">클릭하여 펼치기</span></summary>
@@ -261,10 +275,100 @@
         }
 
         // ------------------------------------------------------------
-        // 7. 초기화: 버튼을 연결하고 저장된 설정/키 상태를 불러오기
+        // 7. 캐시 현황 및 미리보기
+        //    새로고침 때 최신순 이미지 목록을 받아 반응형 그리드로 표시한다.
+        // ------------------------------------------------------------
+        async function loadCacheGallery() {
+            const statusElement = getInput("cache-status");
+            const gallery = getInput("cache-gallery");
+
+            try {
+                const response = await fetch("/cache/status", { cache: "no-store" });
+                if (!response.ok) {
+                    throw new Error(`캐시 조회 실패: HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const sizeMB = (data.cache_size / (1024 * 1024)).toFixed(2);
+                statusElement.textContent = `저장된 이미지 ${data.image_count}개 · 사용 용량 ${sizeMB} MB`;
+
+                // 기존 목록을 비운 후 이미지 요소를 안전하게 생성한다.
+                gallery.replaceChildren();
+                if (data.images.length === 0) {
+                    const empty = document.createElement("p");
+                    empty.textContent = "저장된 캐시 이미지가 없우.";
+                    gallery.appendChild(empty);
+                    return;
+                }
+
+                for (const image of data.images) {
+                    const item = document.createElement("figure");
+                    const preview = document.createElement("img");
+                    const caption = document.createElement("figcaption");
+
+                    preview.src = `/cache/image/${encodeURIComponent(image.id)}`;
+                    preview.alt = `캐시 이미지 ${image.id.slice(0, 8)}`;
+                    preview.loading = "lazy";
+
+                    const date = new Date(image.modified_at * 1000);
+                    caption.textContent = `${date.toLocaleString("ko-KR")} · ${(image.size / 1024).toFixed(0)} KB`;
+
+                    item.append(preview, caption);
+                    gallery.appendChild(item);
+                }
+            } catch (error) {
+                statusElement.textContent = "캐시 목록을 불러오지 못했우.";
+                console.error("[Naify] 캐시 조회 실패:", error);
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 8. 캐시 전체 삭제
+        //    사용자 확인을 받은 경우에만 DELETE 요청을 보낸다.
+        //    설정 및 API 키 파일은 삭제하지 않는다.
+        // ------------------------------------------------------------
+        async function clearAllCache() {
+            const confirmed = confirm("캐시 이미지들을 모두 삭제하겠우?\\n삭제된 이미지는 다음 요청 시 다시 생성되우.");
+            if (!confirmed) {
+                return;
+            }
+
+            const statusElement = getInput("cache-action-status");
+            const button = getInput("clear-cache");
+            button.disabled = true;
+
+            try {
+                const response = await fetch("/cache", {
+                    method: "DELETE",
+                    headers: { "X-Naify-Action": "clear-cache" }
+                });
+                if (!response.ok) {
+                    throw new Error(`캐시 삭제 실패: HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                statusElement.textContent = `캐시 이미지 ${result.deleted_count}개를 삭제했우.`;
+                await loadCacheGallery();
+            } catch (error) {
+                statusElement.textContent = "캐시 삭제에 실패했우.";
+                console.error("[Naify] 캐시 삭제 실패:", error);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 9. 초기화: 버튼을 연결하고 저장된 설정/키 상태를 불러오기
         // ------------------------------------------------------------
         getInput("save-button").addEventListener("click", saveConfig);
         getInput("save-api-key").addEventListener("click", saveApiKey);
+        getInput("refresh-cache").addEventListener("click", loadCacheGallery);
+        getInput("clear-cache").addEventListener("click", clearAllCache);
+        getInput("cache-gallery-panel").addEventListener("toggle", (event) => {
+            if (event.target.open) {
+                loadCacheGallery();
+            }
+        });
         loadConfig();
         loadApiKeyStatus();
     </script>
