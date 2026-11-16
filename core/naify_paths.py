@@ -29,20 +29,9 @@ def get_resource_dir() -> Path:
 
 
 def ensure_data_dirs() -> None:
-    try:
-        DATA_DIR.mkdir(parents=True)
-        CACHE_DIR.mkdir(parents=True)
-    except Exception as e:
-        print_log(content=f"{e}")
-    finally:
-        print_log(content=f"Data Directory = {DATA_DIR}")
-        print_log(content=f"Dir Exist? = {DATA_DIR.exists()}")
-        print_log(content=f"Is file: {DATA_DIR.is_file()}")
-
-        print("Contents:", list(DATA_DIR.iterdir()))
-        print("Python:", sys.executable)
-        print("Computer:", os.environ.get("COMPUTERNAME"))
-        print("LocalAppData:", os.environ.get("LOCALAPPDATA"))
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    print_log(content=f"Data Directory = {DATA_DIR}")
         
 
 DATA_DIR: Final[Path] = get_data_dir()
