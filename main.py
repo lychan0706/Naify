@@ -86,7 +86,7 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, access_log=False)
 
-# url : 
+# test url : 
 # http://127.0.0.1:8000/
 # http://127.0.0.1:8000/config
 # http://127.0.0.1:8000/get_image?prompt=1girl

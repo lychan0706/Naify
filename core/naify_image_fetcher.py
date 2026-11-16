@@ -18,10 +18,10 @@ def fetch_image(image_id: str, config: NaifyConfig, prompt: str) -> bytes:
     is_cached = image_path.is_file()
 
     if is_cached:
-        print_log(image_id, "getting image from cache")
+        print_log(image_id, "Getting image from cache")
         image_bytes = get_image_from_cache(image_id)
     else:
-        print_log(image_id, "generating")
+        print_log(image_id, "Queued for generation")
         future = Future()
         generation_request_queue.put((image_id, config, prompt, future))
         image_bytes = future.result()
@@ -41,11 +41,20 @@ def generation_request_queue_processor() -> None:
             image_path = CACHE_DIR / f"{image_id}.webp"
 
             if image_path.is_file():
+                print_log(image_id=image_id, content=f"Found in cache. Serving existing image from cache.")
+
                 image_bytes = get_image_from_cache(image_id)
+                
             else:
-                image_bytes = generate_image(config, prompt)
+                print_log(image_id=image_id, content="Generating...")
+
+                image_bytes = generate_image(image_id=image_id, naify_config=config, prompt=prompt)
+
+                print_log(image_id=image_id, content="Generated")
+
                 naify_cache.save_image_to_cache(image_id, image_bytes)
                 naify_cache.trim_cache(config.cache)
+
                 time.sleep(0.5)
 
             future.set_result(image_bytes)

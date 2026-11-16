@@ -1,5 +1,5 @@
 import io
-import time
+from datetime import datetime
 import zipfile
 
 def print_log(image_id:str = "SERVER", content: str = "") -> None:
@@ -7,8 +7,10 @@ def print_log(image_id:str = "SERVER", content: str = "") -> None:
     현재 시각을 HH:MM:SS 형식으로 표시하고 로그를 출력한다.
     """
     
-    timestamp = time.strftime("%H:%M:%S")
-    print(f"[{timestamp}] {image_id} : {content}")
+    now = datetime.now()
+    timestamp = now.strftime("%H:%M:%S.%f")[:-3]
+
+    print(f"[{timestamp}] {image_id[:6]} : {content}")
 
 
 def extract_image_from_zip(zip_data: bytes) -> bytes:

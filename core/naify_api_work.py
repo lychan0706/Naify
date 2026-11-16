@@ -34,7 +34,7 @@ def get_anlas_balance() -> int | None:
         return remaining_anlas
 
 
-def generate_image(naify_config: NaifyConfig, prompt: str) -> bytes:
+def generate_image(image_id: str, naify_config: NaifyConfig, prompt: str) -> bytes:
 
     prompt = prompt.replace("_", " ")
     prompt = prompt.replace(",", ", ")
@@ -102,7 +102,7 @@ def generate_image(naify_config: NaifyConfig, prompt: str) -> bytes:
         )
 
     if generation_response.status_code != 200:
-        print_log(f"error: {generation_response.status_code} - {generation_response.json().get("message")}")
+        print_log(image_id, f"error - {generation_response.status_code} - {generation_response.json().get("message")}")
 
         raise fastapi.HTTPException(
             status_code=502,
