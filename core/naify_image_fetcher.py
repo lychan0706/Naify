@@ -1,7 +1,7 @@
 from concurrent.futures import Future
 from queue import Queue
 from hashlib import sha256
-from core.naify_cache import CACHE_DIR, get_image_from_cache
+from core.naify_cache import get_image_from_cache
 from core.naify_api_work import generate_image
 from core.naify_utility import print_log
 from core import naify_cache
@@ -14,13 +14,12 @@ generation_request_queue = Queue()
 
 
 def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, prompt: str) -> bytes:
-    # cache에 image_id를 가진 webp 파일 검사
-    image_path = CACHE_DIR / f"{image_id}.webp"
-    is_cached = image_path.is_file()
+    # 캐시 확인과 파일 읽기는 하나의 잠금 안에서 처리한다.
+    # 전체 삭제가 동시에 실행되어도 파일이 중간에 사라지지 않는다.
+    image_bytes = get_image_from_cache(image_id)
 
-    if is_cached:
+    if image_bytes is not None:
         print_log(image_id, "Getting image from cache")
-        image_bytes = get_image_from_cache(image_id)
     else:
         print_log(image_id, "Queued for generation")
         future = Future()
@@ -42,12 +41,11 @@ def generation_request_queue_processor() -> None:
         image_id, secrets, config, prompt, future = generation_request_queue.get()
 
         try:
-            image_path = CACHE_DIR / f"{image_id}.webp"
+            # 큐에서 꺼낸 시점에도 캐시를 재조회해 중복 생성을 방지한다.
+            image_bytes = get_image_from_cache(image_id)
 
-            if image_path.is_file():
-                print_log(image_id=image_id, content=f"Found in cache. Serving existing image from cache.")
-
-                image_bytes = get_image_from_cache(image_id)
+            if image_bytes is not None:
+                print_log(image_id=image_id, content="Found in cache. Serving existing image from cache.")
 
             else:
                 print_log(image_id=image_id, content="Generating...")
