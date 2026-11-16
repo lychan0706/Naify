@@ -35,12 +35,14 @@
             <div><label for="seed">시드(Seed):</label> <input type="number" id="seed" value="-1"></div>
             <div>
                 <label for="sampler">샘플러:</label>
-                <select id="sampler"><option value="k_euler_ancestral">Euler Ancestral</option></select>
-                <select id="sampler"><option value="k_euler">Euler</option></select>
-                <select id="sampler"><option value="k_dpmpp_2s_ancestral">DPM++ 2S Ancestral</option></select>
-                <select id="sampler"><option value="k_dpmpp_2m_sde">DPM++ 2M SDE</option></select>
-                <select id="sampler"><option value="k_dpmpp_2m">DPM++ 2M</option></select>
-                <select id="sampler"><option value="k_dpmpp_sde">DPM++ SDE</option></select>
+                <select id="sampler">
+                    <option value="k_euler_ancestral">Euler Ancestral</option>
+                    <option value="k_euler">Euler</option>
+                    <option value="k_dpmpp_2s_ancestral">DPM++ 2S Ancestral</option>
+                    <option value="k_dpmpp_2m_sde">DPM++ 2M SDE</option>
+                    <option value="k_dpmpp_2m">DPM++ 2M</option>
+                    <option value="k_dpmpp_sde">DPM++ SDE</option>
+                </select>
             </div>
             <div><label for="prompt_guidance_rescale">가이던스 리스케일:</label> <input type="number" id="prompt_guidance_rescale" min="0" max="1" step="0.01" value="0.4"></div>
             <div>
