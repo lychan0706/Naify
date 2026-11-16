@@ -1,205 +1,243 @@
 <!DOCTYPE html>
-<html>
-    <head>
-        <title>Naify Manager</title>
-    </head>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naify Manager</title>
+</head>
+<body>
+    <h1>Naify Manager</h1>
+    <p>Naify: Best Choice for Naifying Your Crack Experience!</p>
 
+    <hr>
+    <h2>이미지 생성 설정</h2>
 
-    <body>
-        <h1>Naify Manager</h1>
-            <p>Welcome to Naify v0.2.1dev</p>
+    <div>
+        <label for="model">생성 모델:</label>
+        <select id="model">
+            <option value="nai-diffusion-4-5-full">NAI Diffusion 4.5 Full</option>
+            <option value="nai-diffusion-4-5-curated">NAI Diffusion 4.5 Curated</option>
+            <option value="nai-diffusion-5-full">NAI Diffusion 5 Full</option>
+            <option value="nai-diffusion-5-curated">NAI Diffusion 5 Curated</option>
+        </select>
+    </div>
+    <div><label for="width">이미지 너비:</label> <input type="number" id="width" min="512" step="64" value="1216"></div>
+    <div><label for="height">이미지 높이:</label> <input type="number" id="height" min="512" step="64" value="832"></div>
+    <div><label for="steps">생성 단계(Steps):</label> <input type="number" id="steps" min="1" max="50" value="28"></div>
+    <div><label for="prompt_guidance">프롬프트 가이던스:</label> <input type="number" id="prompt_guidance" min="0" max="10" step="0.1" value="7"></div>
+    <div><label for="seed">시드(Seed):</label> <input type="number" id="seed" value="-1"></div>
+    <div>
+        <label for="sampler">샘플러:</label>
+        <select id="sampler"><option value="k_euler_ancestral">Euler Ancestral</option></select>
+    </div>
+    <div><label for="prompt_guidance_rescale">가이던스 리스케일:</label> <input type="number" id="prompt_guidance_rescale" min="0" max="1" step="0.01" value="0.4"></div>
+    <div>
+        <label for="noise_schedule">노이즈 스케줄:</label>
+        <select id="noise_schedule">
+            <option value="karras">Karras</option>
+            <option value="exponential">Exponential</option>
+            <option value="polyexponential">Polyexponential</option>
+        </select>
+    </div>
 
-            <hr>
-            <h2>Generation Settings</h2>
+    <hr>
+    <h2>프롬프트 설정</h2>
+    <div><label for="base_prompt">기본 프롬프트:</label><br><textarea id="base_prompt" rows="8" cols="80"></textarea></div>
+    <div><label for="negative_prompt">네거티브 프롬프트:</label><br><textarea id="negative_prompt" rows="8" cols="80"></textarea></div>
 
-            <div>
-                <label for="model">Model:</label>
-                <select id="model">
-                    <option value="nai-diffusion-4-5-full">NAI Diffusion 4.5 Full</option>
-                    <option value="nai-diffusion-4-5-curated">NAI Diffusion 4.5 Curated</option>
-                    <option value="nai-diffusion-5-full">NAI Diffusion 5 Full</option>
-                    <option value="nai-diffusion-5-curated">NAI Diffusion 5 Curated</option>
-                </select>
-            </div>
+    <hr>
+    <h2>캐시 설정</h2>
+    <div><label for="max_cache_size">최대 캐시 용량(바이트):</label> <input type="number" id="max_cache_size" min="1"></div>
+    <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
 
-            <div>
-                <label for="width">Width:</label>
-                <input type="number" id="width" min="64" step="64" value="1216">
-            </div>
+    <p id="save-status" role="status"></p>
+    <button type="button" id="save-button">설정 저장</button>
 
-            <div>
-                <label for="height">Height:</label>
-                <input type="number" id="height" min="64" step="64" value="832">
-            </div>
+    <hr>
+    <h2>NovelAI API 키</h2>
+    <p id="api-key-status" role="status">등록 상태 확인 중...</p>
+    <label for="api-key">새 API 키:</label>
+    <input type="password" id="api-key" autocomplete="new-password" placeholder="새로운 NovelAI API 키 입력">
+    <button type="button" id="save-api-key">API 키 변경</button>
+    <p id="api-key-save-status" role="status"></p>
 
-            <div>
-                <label for="steps">Steps:</label>
-                <input type="number" id="steps" min="1" max="50" value="28">
-            </div>
+    <script>
+        // ------------------------------------------------------------
+        // 1. 공통 도우미: 입력 요소 가져오기
+        //    id를 넘기면 해당 입력창을 찾는다.
+        // ------------------------------------------------------------
+        function getInput(id) {
+            const element = document.getElementById(id);
+            return element;
+        }
 
-            <div>
-                <label for="prompt_guidance">Prompt Guidance:</label>
-                <input type="number" id="prompt_guidance" min="0" max="10" step="0.1" value="5">
-            </div>
+        // ------------------------------------------------------------
+        // 2. 서버의 설정을 읽어 입력창에 반영
+        //    GET /config는 generation, prompt, cache로 묶인 JSON을 반환한다.
+        // ------------------------------------------------------------
+        async function loadConfig() {
+            const statusElement = getInput("save-status");
 
-            <div>
-                <label for="seed">Seed:</label>
-                <input type="number" id="seed">
-            </div>
+            try {
+                // fetch()는 HTTP 응답을, response.json()은 JSON 본문을 비동기로 읽는다.
+                const response = await fetch("/config");
+                if (!response.ok) {
+                    throw new Error(`설정 조회 실패: HTTP ${response.status}`);
+                }
+                const config = await response.json();
 
-            <div>
-                <label for="sampler">Sampler:</label>
-                <select id="sampler">
-                    <option value="k_euler_ancestral">Euler Ancestral</option>
-                </select>
-            </div>
+                // 이미지 생성 옵션 표시
+                getInput("model").value = config.generation.model;
+                getInput("width").value = config.generation.width;
+                getInput("height").value = config.generation.height;
+                getInput("steps").value = config.generation.steps;
+                getInput("prompt_guidance").value = config.generation.prompt_guidance;
+                getInput("seed").value = config.generation.seed;
+                getInput("sampler").value = config.generation.sampler;
+                getInput("prompt_guidance_rescale").value = config.generation.prompt_guidance_rescale;
+                getInput("noise_schedule").value = config.generation.noise_schedule;
 
-            <div>
-                <label for="prompt_guidance_rescale">Prompt Guidance Rescale:</label>
-                <input type="number" id="prompt_guidance_rescale" min="0" max="1" step="0.01" value="0.0">
-            </div>
+                // 프롬프트 및 캐시 옵션 표시
+                getInput("base_prompt").value = config.prompt.base_prompt;
+                getInput("negative_prompt").value = config.prompt.negative_prompt;
+                getInput("max_cache_size").value = config.cache.max_cache_size;
+                getInput("max_images").value = config.cache.max_images;
+            } catch (error) {
+                statusElement.textContent = "설정 조회 실패.";
+                console.error("[Naify] 설정 조회 실패:", error);
+            }
+        }
 
-            <div>
-                <label for="noise_schedule">Noise Schedule:</label>
-                <select id="noise_schedule">
-                    <option value="karras">karras</option>
-                    <option value="exponential">exponential</option>
-                    <option value="polyexponential">polyexponential</option>
-                </select>
-            </div>
+        // ------------------------------------------------------------
+        // 3. 현재 입력창 값을 모아 NaifyConfig와 같은 JSON 구조로 만들기
+        //    숫자 입력창의 .value도 문자열이므로 Number()로 변환한다.
+        // ------------------------------------------------------------
+        function collectConfig() {
+            const config = {
+                generation: {
+                    model: getInput("model").value,
+                    width: Number(getInput("width").value),
+                    height: Number(getInput("height").value),
+                    steps: Number(getInput("steps").value),
+                    prompt_guidance: Number(getInput("prompt_guidance").value),
+                    seed: Number(getInput("seed").value),
+                    sampler: getInput("sampler").value,
+                    prompt_guidance_rescale: Number(getInput("prompt_guidance_rescale").value),
+                    noise_schedule: getInput("noise_schedule").value
+                },
+                prompt: {
+                    base_prompt: getInput("base_prompt").value,
+                    negative_prompt: getInput("negative_prompt").value
+                },
+                cache: {
+                    max_cache_size: Number(getInput("max_cache_size").value),
+                    max_images: Number(getInput("max_images").value)
+                }
+            };
 
-            <hr>
+            return config;
+        }
 
-            <h2>Prompt Settings</h2>
+        // ------------------------------------------------------------
+        // 4. 설정 저장
+        //    PUT /config로 전송하고, 성공했을 때만 서버의 보정값을 다시 읽는다.
+        // ------------------------------------------------------------
+        async function saveConfig() {
+            const statusElement = getInput("save-status");
+            const config = collectConfig();
 
-            <div>
-                <label for="base_prompt">Base Prompt:</label><br>
-                <textarea id="base_prompt" rows="8" cols="80"></textarea>
-            </div>
+            try {
+                const response = await fetch("/config", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(config)
+                });
 
-            <div>
-                <label for="negative_prompt">Negative Prompt:</label><br>
-                <textarea id="negative_prompt" rows="8" cols="80"></textarea>
-            </div>
-
-            <hr>
-
-            <h2>Cache Settings</h2>
-
-            <div>
-                <label for="max_cache_size">Maximum Cache Size (Bytes):</label>
-                <input type="number" id="max_cache_size" min="1">
-            </div>
-
-            <div>
-                <label for="max_images">Maximum Images:</label>
-                <input type="number" id="max_images" min="1">
-            </div>
-
-            <hr>
-
-            <p id="save-status"></p>
-            <button id="save-button">Save Settings</button>
-            
-
-            <script>
-                async function loadConfig() {
-                    const response = await fetch("/config");
-                    const naify_config = await response.json();
-
-                    const model = document.getElementById("model");
-                    const width = document.getElementById("width");
-                    const height = document.getElementById("height");
-                    const steps = document.getElementById("steps");
-                    const prompt_guidance = document.getElementById("prompt_guidance");
-                    const seed = document.getElementById("seed");
-                    const sampler = document.getElementById("sampler");
-                    const prompt_guidance_rescale = document.getElementById("prompt_guidance_rescale");
-                    const noise_schedule = document.getElementById("noise_schedule");
-                    const base_prompt = document.getElementById("base_prompt");
-                    const negative_prompt = document.getElementById("negative_prompt");
-                    const max_cache_size = document.getElementById("max_cache_size");
-                    const max_images = document.getElementById("max_images");
-                    
-                    console.log(naify_config.prompt.base_prompt);
-                    
-                    model.value = naify_config.generation.model;
-                    width.value = naify_config.generation.width;
-                    height.value = naify_config.generation.height;
-                    steps.value = naify_config.generation.steps;
-                    prompt_guidance.value = naify_config.generation.prompt_guidance;
-                    seed.value = naify_config.generation.seed;
-                    sampler.value = naify_config.generation.sampler;
-                    prompt_guidance_rescale.value = naify_config.generation.prompt_guidance_rescale;
-                    noise_schedule.value = naify_config.generation.noise_schedule;
-                    base_prompt.value = naify_config.prompt.base_prompt;
-                    negative_prompt.value = naify_config.prompt.negative_prompt;
-                    max_cache_size.value = naify_config.cache.max_cache_size;
-                    max_images.value = naify_config.cache.max_images;
+                if (!response.ok) {
+                    statusElement.textContent = `설정 저장 실패 (HTTP ${response.status})`;
+                    return;
                 }
 
-                async function putConfig() {
-                    const model = document.getElementById("model").value
-                    const width = Number(document.getElementById("width").value);
-                    const height = Number(document.getElementById("height").value);
-                    const steps = Number(document.getElementById("steps").value);
-                    const prompt_guidance = Number(document.getElementById("prompt_guidance").value);
-                    const seed = Number(document.getElementById("seed").value);
-                    const sampler = document.getElementById("sampler").value;
-                    const prompt_guidance_rescale = Number(document.getElementById("prompt_guidance_rescale").value);
-                    const noise_schedule = document.getElementById("noise_schedule").value;
-                    const base_prompt = document.getElementById("base_prompt").value;
-                    const negative_prompt = document.getElementById("negative_prompt").value;
-                    const max_cache_size = Number(document.getElementById("max_cache_size").value);
-                    const max_images = Number(document.getElementById("max_images").value);
+                statusElement.textContent = "설정 저장 완료!";
+                await loadConfig();
+            } catch (error) {
+                statusElement.textContent = "서버 연결 실패";
+                console.error("[Naify] 설정 저장 실패:", error);
+            }
+        }
 
-                    const data = {
-                        generation: {
-                            model,
-                            width,
-                            height,
-                            steps,
-                            prompt_guidance,
-                            seed,
-                            sampler,
-                            prompt_guidance_rescale,
-                            noise_schedule
-                        },
-                        prompt: {
-                            base_prompt,
-                            negative_prompt
-                        },
-                        cache: {
-                            max_cache_size,
-                            max_images
-                        }
-                    };
+        // ------------------------------------------------------------
+        // 5. API 키 등록 여부 확인
+        //    GET /secrets/status는 키 원문 대신 configured 값만 반환한다.
+        // ------------------------------------------------------------
+        async function loadApiKeyStatus() {
+            const statusElement = getInput("api-key-status");
 
-                    const response = await fetch("/config", {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(data)
-                    });
+            try {
+                const response = await fetch("/secrets/status");
+                if (!response.ok) {
+                    throw new Error(`API 키 상태 조회 실패: HTTP ${response.status}`);
+                }
+                const data = await response.json();
 
-                    const status = document.getElementById("save-status");
+                if (data.configured) {
+                    statusElement.textContent = "API 키가 등록되어 있습니다.";
+                } else {
+                    statusElement.textContent = "API 키가 등록되지 않았습니다.";
+                }
+            } catch (error) {
+                statusElement.textContent = "API 키 등록 상태를 확인하지 못했습니다.";
+                console.error("[Naify] API 키 상태 조회 실패:", error);
+            }
+        }
 
-                    if (response.ok) {
-                        status.textContent = "Settings saved!";
-                        status.style.color = "green";
-                
-                        await loadConfig();
-                    } else {
-                        status.textContent = "Failed to save settings!";
-                        status.style.color = "red";
-                    }
+        // ------------------------------------------------------------
+        // 6. API 키 변경
+        //    입력한 키를 PUT /secrets로 전송한다. 기존 키는 조회하지 않는다.
+        // ------------------------------------------------------------
+        async function saveApiKey() {
+            const apiKeyInput = getInput("api-key");
+            const statusElement = getInput("api-key-save-status");
+            const apiKey = apiKeyInput.value.trim();
+
+            // 실수로 빈 문자열을 보내 기존 키를 지우지 않도록 막는다.
+            if (apiKey.length === 0) {
+                statusElement.textContent = "API 키를 입력하시오.";
+                return;
+            }
+
+            // Python의 NaifySecrets 모델과 동일한 필드 이름을 사용한다.
+            const data = { nai_api_key: apiKey };
+
+            try {
+                const response = await fetch("/secrets", {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    statusElement.textContent = `API 키 변경 실패 (HTTP ${response.status})`;
+                    return;
                 }
 
-                loadConfig();
+                statusElement.textContent = "API 키가 변경되었습니다!";
+                apiKeyInput.value = ""; // 성공 후 화면에 입력한 키를 남기지 않음
+                await loadApiKeyStatus();
+            } catch (error) {
+                statusElement.textContent = "서버에 연결할 수 없습니다.";
+                // 민감한 API 키 값은 콘솔에 기록하지 않는다.
+                console.error("[Naify] API 키 변경 실패:", error);
+            }
+        }
 
-                const saveButton  = document.getElementById("save-button");
-                saveButton.addEventListener("click", putConfig);
-            </script>
-    </body>
+        // ------------------------------------------------------------
+        // 7. 초기화: 버튼을 연결하고 저장된 설정/키 상태를 불러오기
+        // ------------------------------------------------------------
+        getInput("save-button").addEventListener("click", saveConfig);
+        getInput("save-api-key").addEventListener("click", saveApiKey);
+        loadConfig();
+        loadApiKeyStatus();
+    </script>
+</body>
 </html>

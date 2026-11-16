@@ -8,6 +8,8 @@ from core.naify_utility import print_log
 from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
+from fastapi import Request
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 
 @asynccontextmanager
@@ -24,9 +26,14 @@ async def lifespan(app: fastapi.FastAPI):
 
 
 # FastAPI 앱 생성
-app = fastapi.FastAPI(
-    debug=False,
-    lifespan=lifespan
+app = fastapi.FastAPI(debug=False, lifespan=lifespan)
+
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=[
+        "127.0.0.1",
+        "localhost"
+    ]
 )
 
 
@@ -45,6 +52,7 @@ def home() -> FileResponse:
 
     return response
 
+
 @app.get("/config")
 def get_config() -> fastapi.Response:
 
@@ -53,6 +61,7 @@ def get_config() -> fastapi.Response:
     config = naify_config
 
     return config
+
 
 @app.put("/config")
 def update_config(config: NaifyConfig) -> None:
@@ -63,6 +72,44 @@ def update_config(config: NaifyConfig) -> None:
     save_config(naify_config)
 
     print_log(content="config updated")
+
+    return
+
+
+@app.get("/secrets/status")
+def get_secrets_status() -> dict:
+    
+    print_log(content="got secrets status request")
+
+    is_configured = bool(naify_secrets.nai_api_key)
+    
+    secrets_status = {
+        "configured": is_configured
+    }
+
+    return secrets_status
+
+
+@app.put("/secrets")
+def update_secrets(secrets: NaifySecrets, request: Request) -> None:
+
+    origin : str | None = request.headers.get("origin")
+
+    if origin != "http://127.0.0.1:8000":
+        raise fastapi.HTTPException(
+            status_code=403,
+            detail="Forbidden"
+        )
+
+    global naify_secrets
+
+    naify_secrets = secrets
+    save_secrets(naify_secrets)
+
+    print_log(content="secrets updated")
+
+    return
+
 
 @app.get("/get_image")
 def get_image(prompt: str) -> fastapi.Response:
@@ -100,7 +147,9 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, access_log=False)
 
-# test url : 
+# test urls : 
 # http://127.0.0.1:8000/
 # http://127.0.0.1:8000/config
+# http://127.0.0.1:8000/secrets
+# http://127.0.0.1:8000/secrets/status
 # http://127.0.0.1:8000/get_image?prompt=1girl
