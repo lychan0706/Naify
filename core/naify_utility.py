@@ -1,6 +1,8 @@
 import io
 from datetime import datetime
 import zipfile
+import threading
+import webbrowser
 
 def print_log(image_id:str = "SERVER", content: str = "") -> None:
     """
@@ -28,3 +30,7 @@ def extract_image_from_zip(zip_data: bytes) -> bytes:
     with zipfile.ZipFile(zip_file, "r") as response_zip:
         image_bytes = response_zip.read(response_zip.namelist()[0])
     return image_bytes
+
+
+def open_manager() -> None:
+    webbrowser.open("http://127.0.0.1:8000/")

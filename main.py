@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import Request
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
+from core.naify_utility import open_manager
 
 
 @asynccontextmanager
@@ -21,6 +22,8 @@ async def lifespan(app: fastapi.FastAPI):
     )
 
     worker_thread.start()
+
+    threading.Timer(1.0, open_manager).start()
 
     yield
 
@@ -151,7 +154,7 @@ def get_image(prompt: str) -> fastapi.Response:
 # 서버 실행
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True, access_log=False)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False, access_log=False)
 
 # test urls : 
 # http://127.0.0.1:8000/
