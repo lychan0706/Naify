@@ -36,6 +36,11 @@
             <div>
                 <label for="sampler">샘플러:</label>
                 <select id="sampler"><option value="k_euler_ancestral">Euler Ancestral</option></select>
+                <select id="sampler"><option value="k_euler">Euler</option></select>
+                <select id="sampler"><option value="k_dpmpp_2s_ancestral">DPM++ 2S Ancestral</option></select>
+                <select id="sampler"><option value="k_dpmpp_2m_sde">DPM++ 2M SDE</option></select>
+                <select id="sampler"><option value="k_dpmpp_2m">DPM++ 2M</option></select>
+                <select id="sampler"><option value="k_dpmpp_sde">DPM++ SDE</option></select>
             </div>
             <div><label for="prompt_guidance_rescale">가이던스 리스케일:</label> <input type="number" id="prompt_guidance_rescale" min="0" max="1" step="0.01" value="0.4"></div>
             <div>
@@ -51,7 +56,7 @@
         <!-- 캐시 용량은 서버 설정과 일치하도록 바이트 단위로 입력 -->
         <section class="settings-card aligned-fields">
             <h2>캐시 설정</h2>
-            <div><label for="max_cache_size">최대 캐시 용량(바이트):</label> <input type="number" id="max_cache_size" min="1"></div>
+            <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
             <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
         </section>
 
@@ -122,7 +127,7 @@
                 // 프롬프트 및 캐시 옵션 표시
                 getInput("base_prompt").value = config.prompt.base_prompt;
                 getInput("negative_prompt").value = config.prompt.negative_prompt;
-                getInput("max_cache_size").value = config.cache.max_cache_size;
+                getInput("max_cache_size").value = config.cache.max_cache_size / (1024 * 1024);
                 getInput("max_images").value = config.cache.max_images;
             } catch (error) {
                 statusElement.textContent = "설정 정보를 불러오지 못했우.";
@@ -152,7 +157,7 @@
                     negative_prompt: getInput("negative_prompt").value
                 },
                 cache: {
-                    max_cache_size: Number(getInput("max_cache_size").value),
+                    max_cache_size: (Number(getInput("max_cache_size").value) * 1024 * 1024),
                     max_images: Number(getInput("max_images").value)
                 }
             };
