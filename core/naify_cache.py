@@ -12,7 +12,6 @@ cache_lock = RLock()
 
 
 def get_image_from_cache(image_id: str) -> bytes | None:
-    """캐시 이미지를 읽는다. 삭제된 파일이라면 None을 반환한다."""
     with cache_lock:
         image_path = CACHE_DIR / f"{image_id}.webp"
         if not image_path.is_file():
@@ -33,7 +32,6 @@ def get_cache_size() -> int:
 
 
 def get_cache_status() -> dict:
-    """이미지 목록을 최신 수정 시각부터 정렬해 반환한다."""
     with cache_lock:
         images = []
         for image in CACHE_DIR.glob("*.webp"):
@@ -46,15 +44,16 @@ def get_cache_status() -> dict:
 
         images.sort(key=lambda image: image["modified_at"], reverse=True)
 
-        return {
+        cache_status = {
             "image_count": len(images),
             "cache_size": sum(image["size"] for image in images),
             "images": images
         }
 
+        return cache_status
+
 
 def clear_cache() -> int:
-    """WebP 캐시만 전부 삭제한다. 설정 및 API 키 파일은 그대로 둔다."""
     with cache_lock:
         deleted_count = 0
         for image in CACHE_DIR.glob("*.webp"):
