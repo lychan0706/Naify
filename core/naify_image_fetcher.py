@@ -6,7 +6,6 @@ from core.naify_api_work import generate_image
 from core.naify_utility import print_log
 from core import naify_cache
 from core.naify_config import NaifyConfig
-import time
 import threading
 import os
 
@@ -59,8 +58,6 @@ def generation_request_queue_processor() -> None:
 
                 naify_cache.save_image_to_cache(image_id, image_bytes)
                 naify_cache.trim_cache(config.cache)
-
-                time.sleep(0.5)
 
             future.set_result(image_bytes)
 
