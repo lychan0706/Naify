@@ -4,7 +4,7 @@
 
 Naify is a local FastAPI server that accepts an image prompt through a URL, requests an image from the NovelAI API, and returns the generated image as WebP. It is designed to work with Markdown image syntax such as `![](URL)`.
 
-> **Status:** v0.6.0dev — pre-release development. Windows executable packaging has been tested locally; a public binary release is not yet available. Android currently requires a manual Python/Termux setup. An Android APK is planned for a later version.
+> **Status:** v0.6.1 — Windows pre-release candidate. A standalone Windows executable has been tested locally. The downloadable GitHub pre-release asset is being prepared. Android currently requires manual Python/Termux setup; an APK is planned for a later version.
 
 ## Features
 
@@ -30,9 +30,9 @@ Naify is a local FastAPI server that accepts an image prompt through a URL, requ
 
 ### Standalone executable
 
-When a Windows build is published, download `Naify.exe` from the [Releases](https://github.com/lychan0706/Naify/releases) page and run it.
+When the v0.6.1 Windows pre-release is published, download its `Naify-Windows-x64.exe` asset from the [Releases](https://github.com/lychan0706/Naify/releases) page and run it. Until that asset is available, use the source installation instructions below.
 
-The executable bundles Python and its dependencies: users do **not** need to install Python or pip.
+The standalone executable bundles Python and its dependencies: users do **not** need to install Python or pip. The Windows build is intended for 64-bit Windows systems.
 
 The server starts on `http://127.0.0.1:8000/`, and Naify opens the web manager in your default browser. Enter your own NovelAI API key and adjust the generation settings before making image requests.
 
