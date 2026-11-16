@@ -1,1 +1,0 @@
-console.log("Naify extension started!");

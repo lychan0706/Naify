@@ -5,6 +5,7 @@ from typing import Final
 from core.naify_utility import extract_image_from_zip, print_log
 from core.naify_config import NAI_API_KEY
 from core.naify_config import NaifyConfig
+from core.naify_image_fetcher import fetch_image
 
 
 NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"
@@ -102,7 +103,8 @@ def generate_image(naify_config: NaifyConfig, prompt: str) -> bytes:
         )
 
     if generation_response.status_code != 200:
-        print_log(f"status_code: {generation_response.status_code},\nerror: {generation_response.json().get("message")}")
+        print_log(f"error: {generation_response.status_code} - {generation_response.json().get("message")}")
+
         raise fastapi.HTTPException(
             status_code=502,
             detail="NovelAI Imamge Generation Failed"
