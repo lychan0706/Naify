@@ -1,0 +1,15 @@
+{
+    "manifest_version": 3,
+    "name": "Naify",
+    "version": "0.1.0",
+    "description": "Naify browser extension",
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": ["https://crack.wrtn.ai/*"],
+            "js": ["content.js"]
+        }
+    ]
+}
