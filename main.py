@@ -2,7 +2,8 @@
 import fastapi
 import time
 import threading
-from core import naify_image_fetcher 
+import re
+from core import naify_image_fetcher, naify_cache
 from core.naify_utility import print_log
 from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from fastapi.responses import FileResponse
@@ -118,6 +119,41 @@ def update_secrets(secrets: NaifySecrets, request: Request) -> None:
     print_log(content="secrets updated")
 
     return
+
+
+# 캐시 갤러리에서 사용하는 읽기 전용 엔드포인트.
+@app.get("/cache/status")
+def get_cache_status() -> dict:
+    return naify_cache.get_cache_status()
+
+
+@app.get("/cache/image/{image_id}")
+def get_cached_image(image_id: str) -> fastapi.Response:
+    # 이미지 ID는 SHA-256 해시로만 구성되며, 임의의 파일 경로를 허용하지 않는다.
+    if re.fullmatch(r"[0-9a-f]{64}", image_id) is None:
+        raise fastapi.HTTPException(status_code=400, detail="Invalid image ID")
+
+    image_bytes = naify_cache.get_image_from_cache(image_id)
+    if image_bytes is None:
+        raise fastapi.HTTPException(status_code=404, detail="Cached image not found")
+
+    return fastapi.Response(
+        content=image_bytes,
+        media_type="image/webp",
+        headers={"Cache-Control": "no-store"}
+    )
+
+
+@app.delete("/cache")
+def delete_all_cache(request: Request) -> dict:
+    # 다른 사이트에서 사용자의 로컬 캐시를 지우는 요청을 차단한다.
+    origin = request.headers.get("origin")
+    action = request.headers.get("x-naify-action")
+    if origin != "http://127.0.0.1:8000" or action != "clear-cache":
+        raise fastapi.HTTPException(status_code=403, detail="Forbidden")
+
+    deleted_count = naify_cache.clear_cache()
+    return {"deleted_count": deleted_count}
 
 
 @app.get("/get_image")
