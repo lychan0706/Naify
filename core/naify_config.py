@@ -2,10 +2,7 @@
 from pydantic import BaseModel, field_validator
 from pydantic import ConfigDict
 from pydantic import Field
-from pathlib import Path
-
-CONFIG_PATH: Path = Path(__file__).resolve().parent.parent / "config.json"
-SECRETS_PATH: Path = Path(__file__).resolve().parent.parent / "secrets.json"
+from core.naify_paths import CONFIG_PATH, SECRETS_PATH
 
 class NaifySecrets(BaseModel):
     nai_api_key: str = ""

@@ -1,11 +1,8 @@
-from pathlib import Path
-from typing import Final
 from threading import RLock
 from core.naify_utility import print_log
 from core.naify_config import CacheConfig
+from core.naify_paths import CACHE_DIR
 
-CACHE_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "cache"
-CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # 생성 Worker와 웹 관리자에서 동시에 캐시 파일을 건드리지 않도록 보호.
 cache_lock = RLock()

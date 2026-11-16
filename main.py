@@ -3,14 +3,16 @@ import fastapi
 import time
 import threading
 import re
-from core import naify_image_fetcher, naify_cache
-from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
-from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from fastapi import Request
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+from core import naify_image_fetcher, naify_cache
+from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from core.naify_utility import open_manager, shutdown_server, print_log
+from core.naify_paths import ensure_data_dirs, WEB_DIR
 
 
 @asynccontextmanager
@@ -37,7 +39,7 @@ app.state.request_condition = threading.Condition()
 
 app.mount(
     "/static",
-    StaticFiles(directory="web"),
+    StaticFiles(directory=WEB_DIR),
     name="static"
 )
 
@@ -50,7 +52,9 @@ app.add_middleware(
 )
 
 
-# Config 가져오기
+# 경로 초기화 및 Config 가져오기
+ensure_data_dirs()
+
 naify_config: NaifyConfig = load_config()
 naify_secrets: NaifySecrets = load_secrets()
 
@@ -61,7 +65,7 @@ def home() -> FileResponse:
 
     print_log(content="got home request")
 
-    response: FileResponse = FileResponse("web/index.html")
+    response: FileResponse = FileResponse(WEB_DIR / "index.html")
 
     return response
 
