@@ -7,6 +7,8 @@ from core.naify_utility import print_log
 from core import naify_cache
 from core.naify_config import NaifyConfig
 import time
+import threading
+import os
 
 
 generation_request_queue = Queue()
@@ -34,6 +36,9 @@ def generation_request_queue_processor() -> None:
     이미지 생성 요청 큐의 요청들을 관리하는 함수.
     캐시를 재조회해 중복 생성을 막는다.
     """
+
+    print_log(content=f"Worker started | PID={os.getpid()} | Thread={threading.current_thread().name}")
+
     while True:
         image_id, config, prompt, future = generation_request_queue.get()
 
@@ -44,7 +49,7 @@ def generation_request_queue_processor() -> None:
                 print_log(image_id=image_id, content=f"Found in cache. Serving existing image from cache.")
 
                 image_bytes = get_image_from_cache(image_id)
-                
+
             else:
                 print_log(image_id=image_id, content="Generating...")
 
