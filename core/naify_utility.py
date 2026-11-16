@@ -3,7 +3,7 @@ from datetime import datetime
 import zipfile
 import uvicorn
 import webbrowser
-import naify_image_fetcher
+from core import naify_image_fetcher
 import fastapi
 
 def print_log(image_id:str = "SERVER", content: str = "") -> None:
