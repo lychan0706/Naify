@@ -5,7 +5,6 @@ from typing import Final
 from core.naify_utility import extract_image_from_zip, print_log
 from core.naify_config import NAI_API_KEY
 from core.naify_config import NaifyConfig
-from core.naify_image_fetcher import fetch_image
 
 
 NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"

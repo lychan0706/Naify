@@ -7,7 +7,6 @@ from core.naify_utility import print_log
 # from core.naify_api_work import get_anlas_balance
 from core.naify_config import NaifyConfig, load_config, save_config
 from fastapi.responses import FileResponse
-from fastapi import Body
 
 # FastAPI 앱 생성
 app = fastapi.FastAPI(debug=False)
