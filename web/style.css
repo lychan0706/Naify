@@ -79,6 +79,26 @@ body {
     margin-bottom: 0;
 }
 
+/* 이미지 생성·캐시: 라벨은 왼쪽, 입력칸은 오른쪽 벽에 정렬 */
+.aligned-fields > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 250px);
+    align-items: center;
+    column-gap: 16px;
+}
+
+.aligned-fields > div > label {
+    margin-bottom: 0;
+    text-align: left;
+}
+
+.aligned-fields > div > input,
+.aligned-fields > div > select {
+    width: 100%;
+    min-width: 0;
+    justify-self: end;
+}
+
 /* 프롬프트 편집기는 두 열 전체 사용 */
 .full-width {
     grid-column: 1 / -1;
@@ -248,6 +268,12 @@ summary:focus-visible {
 
     .settings-card h2 {
         font-size: 18px;
+    }
+
+    /* 모바일에서도 양 끝 정렬을 유지하되 입력칸을 줄임 */
+    .aligned-fields > div {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 52%);
+        column-gap: 10px;
     }
 
     .save-actions {
