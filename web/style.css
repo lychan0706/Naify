@@ -287,6 +287,35 @@ button:disabled {
     color: var(--color-success);
 }
 
+/* 서버 종료 요청 후 화면: 페이지에 남더라도 종료 상태를 명확히 알린다. */
+.shutdown-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: var(--bg-main);
+    text-align: center;
+}
+
+.shutdown-screen[hidden] {
+    display: none;
+}
+
+.shutdown-message {
+    max-width: 520px;
+}
+
+.shutdown-message h2 {
+    color: var(--accent-primary);
+    font-size: 25px;
+}
+
+.shutdown-message p {
+    color: var(--text-secondary);
+}
+
 /* ------------------------------------------------------------
    설정 저장 버튼: 스크롤해도 화면 오른쪽 아래에 고정
    작은 반투명 패널로 만들고, 내용 뒤에는 충분한 여백 확보
@@ -315,6 +344,10 @@ button:disabled {
 .save-actions button {
     flex-shrink: 0;
     min-width: 130px;
+}
+
+.save-actions #shutdown-button {
+    min-width: 110px;
 }
 
 /* 모바일: 카드 한 열 + 저장 버튼이 화면 폭에 맞도록 배치 */
@@ -351,5 +384,10 @@ button:disabled {
         bottom: 12px;
         left: 12px;
         justify-content: space-between;
+        flex-wrap: wrap;
+    }
+
+    .save-actions button {
+        min-width: 0;
     }
 }
