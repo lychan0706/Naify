@@ -1,57 +1,82 @@
 from pathlib import Path
 from typing import Final
+from threading import RLock
 from core.naify_utility import print_log
 from core.naify_config import CacheConfig
 
 CACHE_DIR: Final[Path] = Path(__file__).resolve().parent.parent / "cache"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+# 생성 Worker와 웹 관리자에서 동시에 캐시 파일을 건드리지 않도록 보호.
+cache_lock = RLock()
 
-def get_image_from_cache(image_id: str) -> bytes:
-    """
-    캐시에 저장된 WebP 이미지의 바이너리 데이터를 읽는다.
 
-    Args:
-        image_id: 이미지의 고유 식별자.
-
-    Returns:
-        bytes: 캐시에서 읽은 WebP 데이터.
-    """
-    image_path = CACHE_DIR / f"{image_id}.webp"
-    image_bytes = image_path.read_bytes()
-
-    return image_bytes
+def get_image_from_cache(image_id: str) -> bytes | None:
+    """캐시 이미지를 읽는다. 삭제된 파일이라면 None을 반환한다."""
+    with cache_lock:
+        image_path = CACHE_DIR / f"{image_id}.webp"
+        if not image_path.is_file():
+            return None
+        return image_path.read_bytes()
 
 
 def save_image_to_cache(image_id: str, image_bytes: bytes) -> None:
+    with cache_lock:
+        image_path = CACHE_DIR / f"{image_id}.webp"
+        image_path.write_bytes(image_bytes)
 
-    image_path = CACHE_DIR / f"{image_id}.webp"
-    image_path.write_bytes(image_bytes)
-
-    return
 
 def get_cache_size() -> int:
-    cache_size: int = 0
-    cache_images = CACHE_DIR.glob("*.webp")
+    with cache_lock:
+        cache_size = sum(image.stat().st_size for image in CACHE_DIR.glob("*.webp"))
+        return cache_size
 
-    for cache_image in cache_images:
-        cache_size += cache_image.stat().st_size
-    
-    return cache_size
+
+def get_cache_status() -> dict:
+    """이미지 목록을 최신 수정 시각부터 정렬해 반환한다."""
+    with cache_lock:
+        images = []
+        for image in CACHE_DIR.glob("*.webp"):
+            image_stat = image.stat()
+            images.append({
+                "id": image.stem,
+                "size": image_stat.st_size,
+                "modified_at": image_stat.st_mtime
+            })
+
+        images.sort(key=lambda image: image["modified_at"], reverse=True)
+
+        return {
+            "image_count": len(images),
+            "cache_size": sum(image["size"] for image in images),
+            "images": images
+        }
+
+
+def clear_cache() -> int:
+    """WebP 캐시만 전부 삭제한다. 설정 및 API 키 파일은 그대로 둔다."""
+    with cache_lock:
+        deleted_count = 0
+        for image in CACHE_DIR.glob("*.webp"):
+            image.unlink()
+            deleted_count += 1
+
+        print_log(content=f"Cleared cache: {deleted_count} images")
+        return deleted_count
+
 
 def trim_cache(cache_config: CacheConfig) -> None:
-    cache_size = get_cache_size()
-    cache_images = CACHE_DIR.glob("*.webp")
-    
-    cache_images = sorted(
-        cache_images, 
-        key=lambda cache_image: cache_image.stat().st_mtime,
-        reverse=True
-    )
-    
-    while (cache_size > cache_config.max_cache_size or len(cache_images) > cache_config.max_images) and cache_images:
-        oldest_image = cache_images.pop()
-        cache_size -= oldest_image.stat().st_size
-        oldest_image.unlink()
+    with cache_lock:
+        cache_images = sorted(
+            CACHE_DIR.glob("*.webp"),
+            key=lambda image: image.stat().st_mtime,
+            reverse=True
+        )
+        cache_size = sum(image.stat().st_size for image in cache_images)
 
-        print_log(content=f"Deleted cache: {oldest_image.name}")
+        while (cache_size > cache_config.max_cache_size or len(cache_images) > cache_config.max_images) and cache_images:
+            oldest_image = cache_images.pop()
+            cache_size -= oldest_image.stat().st_size
+            oldest_image.unlink()
+
+            print_log(content=f"Deleted cache: {oldest_image.name}")
