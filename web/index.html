@@ -102,6 +102,15 @@
     <div class="save-actions">
         <p id="save-status" role="status"></p>
         <button type="button" id="save-button">설정 저장</button>
+        <button type="button" id="shutdown-button" class="danger-button">Naify 종료</button>
+    </div>
+
+    <!-- 브라우저 정책상 탭을 닫을 수 없을 때 보여줄 종료 완료 화면 -->
+    <div id="shutdown-screen" class="shutdown-screen" hidden>
+        <div class="shutdown-message">
+            <h2>Naify가 종료되었우.</h2>
+            <p>안전하게 종료 요청을 전달했우. 이 탭을 닫아도 되우.</p>
+        </div>
     </div>
 
     <script>
@@ -358,12 +367,55 @@
         }
 
         // ------------------------------------------------------------
-        // 9. 초기화: 버튼을 연결하고 저장된 설정/키 상태를 불러오기
+        // 9. Naify 서버 종료
+        //    종료 요청은 즉시 응답하고, Python은 기존 이미지 작업을 마친 뒤 종료한다.
+        //    브라우저가 탭 자동 닫기를 허용하지 않으면 종료 안내 화면을 보여준다.
+        // ------------------------------------------------------------
+        async function shutdownNaify() {
+            const confirmed = confirm(
+                "Naify를 종료하겠우?\n진행 중인 이미지 생성이 끝나면 서버가 종료되우."
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            const button = getInput("shutdown-button");
+            const statusElement = getInput("save-status");
+            button.disabled = true;
+            statusElement.textContent = "종료 요청 중...";
+
+            try {
+                const response = await fetch("/shutdown", {
+                    method: "POST",
+                    headers: { "X-Naify-Action": "shutdown" }
+                });
+
+                if (!response.ok && response.status !== 409) {
+                    throw new Error(`서버 종료 요청 실패: HTTP ${response.status}`);
+                }
+
+                // 요청이 접수되면 서버가 종료될 수 있으므로 추가 통신은 시도하지 않는다.
+                getInput("shutdown-screen").hidden = false;
+
+                // 일반 브라우저 탭은 보안 정책상 window.close()를 거부할 수 있다.
+                // 그 경우 위 안내 화면이 그대로 남아 사용자가 직접 닫을 수 있다.
+                setTimeout(() => window.close(), 400);
+            } catch (error) {
+                statusElement.textContent = "종료 요청에 실패했우.";
+                button.disabled = false;
+                console.error("[Naify] 종료 요청 실패:", error);
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 10. 초기화: 버튼을 연결하고 저장된 설정/키 상태를 불러오기
         // ------------------------------------------------------------
         getInput("save-button").addEventListener("click", saveConfig);
         getInput("save-api-key").addEventListener("click", saveApiKey);
         getInput("refresh-cache").addEventListener("click", loadCacheGallery);
         getInput("clear-cache").addEventListener("click", clearAllCache);
+        getInput("shutdown-button").addEventListener("click", shutdownNaify);
         getInput("cache-gallery-panel").addEventListener("toggle", (event) => {
             if (event.target.open) {
                 loadCacheGallery();
