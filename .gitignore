@@ -18,3 +18,4 @@ venv/
 
 # Nai 설정
 config.json
+secrets.json

@@ -7,7 +7,12 @@ from pydantic import Field
 from pathlib import Path
 
 CONFIG_PATH: Path = Path(__file__).resolve().parent.parent / "config.json"
+SECRETS_PATH: Path = Path(__file__).resolve().parent.parent / "secrets.json"
 NAI_API_KEY: Final[str] = os.environ["NOVELAI_API_KEY"]
+
+class NaifySecrets(BaseModel):
+    nai_api_key: str = ""
+
 
 class GenerationPrompt(BaseModel):
 
@@ -93,7 +98,7 @@ class NaifyConfig(BaseModel):
     cache: CacheConfig = Field(default_factory=CacheConfig)
 
 
-def save_config(naify_config: NaifyConfig):
+def save_config(naify_config: NaifyConfig) -> None:
     config_json: str = naify_config.model_dump_json(indent=4)
     with open(CONFIG_PATH, "w", encoding="utf-8") as json_file:
         json_file.write(config_json)
@@ -113,3 +118,25 @@ def load_config() -> NaifyConfig:
     naify_config = NaifyConfig.model_validate_json(config_json)
 
     return naify_config
+
+
+def save_secrets(naify_secrets: NaifySecrets) -> None:
+    secrets_json: str = naify_secrets.model_dump_json(indent=4)
+    with open (SECRETS_PATH, "w", encoding="utf-8") as json_file:
+        json_file.write(secrets_json)
+
+
+def load_secrets() -> NaifySecrets:
+    naify_secrets: NaifySecrets
+
+    if not SECRETS_PATH.exists():
+        naify_secrets = NaifySecrets()
+        save_secrets(naify_secrets)
+        return naify_secrets
+
+    with open(SECRETS_PATH, "r", encoding="utf-8") as json_file:
+        secrets_json: str = json_file.read()
+
+    naify_secrets = NaifySecrets.model_validate_json(secrets_json)
+
+    return naify_secrets

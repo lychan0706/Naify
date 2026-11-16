@@ -3,14 +3,13 @@ import httpx
 from typing import Final
 
 from core.naify_utility import extract_image_from_zip, print_log
-from core.naify_config import NAI_API_KEY
-from core.naify_config import NaifyConfig
+from core.naify_config import NaifyConfig, NaifySecrets
 
 
 NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"
 
 
-def get_anlas_balance() -> int | None:
+def get_anlas_balance(naify_secrets: NaifySecrets) -> int | None:
     """
     NovelAI API에서 현재 남은 Anlas 잔액을 조회한다.
 
@@ -21,7 +20,7 @@ def get_anlas_balance() -> int | None:
     try:
         subscription_info_response = httpx.get(
             "https://image.novelai.net/user/subscription",
-            headers={"Authorization": f"Bearer {NAI_API_KEY}"},
+            headers={"Authorization": f"Bearer {naify_secrets.nai_api_key}"},
             timeout=10.0
         )
         subscription_info_response.raise_for_status()
@@ -34,7 +33,7 @@ def get_anlas_balance() -> int | None:
         return remaining_anlas
 
 
-def generate_image(image_id: str, naify_config: NaifyConfig, prompt: str) -> bytes:
+def generate_image(image_id: str, naify_secrets: NaifySecrets, naify_config: NaifyConfig, prompt: str) -> bytes:
 
     prompt = prompt.replace("_", " ")
     prompt = prompt.replace(",", ", ")
@@ -43,7 +42,7 @@ def generate_image(image_id: str, naify_config: NaifyConfig, prompt: str) -> byt
     generation_response = httpx.post(
             timeout=120.0,
             url=NAI_API_URL,
-            headers={"Authorization": f"Bearer {NAI_API_KEY}"},
+            headers={"Authorization": f"Bearer {naify_secrets.nai_api_key}"},
             json = {
                 "action": "generate",
                 "input": naify_config.prompt.base_prompt,

@@ -5,9 +5,10 @@ import threading
 from core import naify_image_fetcher 
 from core.naify_utility import print_log
 # from core.naify_api_work import get_anlas_balance
-from core.naify_config import NaifyConfig, load_config, save_config
+from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
+
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
@@ -21,14 +22,18 @@ async def lifespan(app: fastapi.FastAPI):
 
     yield
 
+
 # FastAPI 앱 생성
 app = fastapi.FastAPI(
     debug=False,
     lifespan=lifespan
 )
 
+
 # Config 가져오기
 naify_config: NaifyConfig = load_config()
+naify_secrets: NaifySecrets = load_secrets()
+
 
 # 라우트 선언
 @app.get("/")
@@ -76,7 +81,7 @@ def get_image(prompt: str) -> fastapi.Response:
     print_log(image_id, "Requested")
 
     # 이미지 제공
-    image_bytes = naify_image_fetcher.fetch_image(image_id=image_id, config=naify_config, prompt=prompt)
+    image_bytes = naify_image_fetcher.fetch_image(image_id=image_id, secrets=naify_secrets, config=naify_config, prompt=prompt)
     requested_webp = fastapi.Response(
         content=image_bytes,
         media_type="image/webp"
