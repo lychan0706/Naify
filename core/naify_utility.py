@@ -1,8 +1,10 @@
 import io
 from datetime import datetime
 import zipfile
-import threading
+import uvicorn
 import webbrowser
+import naify_image_fetcher
+import fastapi
 
 def print_log(image_id:str = "SERVER", content: str = "") -> None:
     """
@@ -34,3 +36,22 @@ def extract_image_from_zip(zip_data: bytes) -> bytes:
 
 def open_manager() -> None:
     webbrowser.open("http://127.0.0.1:8000/")
+
+
+def shutdown_server(app: fastapi.FastAPI, server: uvicorn.Server) -> None:
+
+    # 현재 처리 중인 이미지 요청이 모두 끝날 때까지 대기
+    with app.state.request_condition:
+
+        app.state.request_condition.wait_for(
+            lambda: app.state.active_requests == 0
+        )
+
+    # 큐에 등록된 작업도 모두 처리되었는지 확인
+    naify_image_fetcher.generation_request_queue.join()
+
+    print_log(content="All generation tasks completed")
+
+    server.should_exit = True
+
+    return

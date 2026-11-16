@@ -4,14 +4,13 @@ import time
 import threading
 import re
 from core import naify_image_fetcher, naify_cache
-from core.naify_utility import print_log
 from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from fastapi import Request
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
-from core.naify_utility import open_manager
+from core.naify_utility import open_manager, shutdown_server, print_log
 
 
 @asynccontextmanager
@@ -29,8 +28,12 @@ async def lifespan(app: fastapi.FastAPI):
     yield
 
 
-# FastAPI 앱 생성
+# FastAPI 앱 생성 및 설정
 app = fastapi.FastAPI(debug=False, lifespan=lifespan)
+
+app.state.shutting_down = False
+app.state.active_requests = 0
+app.state.request_condition = threading.Condition()
 
 app.mount(
     "/static",
@@ -158,39 +161,114 @@ def delete_all_cache(request: Request) -> dict:
 
 @app.get("/get_image")
 def get_image(prompt: str) -> fastapi.Response:
-    """
-    이미지 요청에 대한 라우트
 
-    Returns:
-        fastapi.Response: WebP 이미지가 포함된 HTTP 응답.
-    """
-    # 이미지 id 생성
-    image_id: str = naify_image_fetcher.make_image_id(prompt)
+    # 1. 종료 상태 검사 및 요청 수 증가
+    with app.state.request_condition:
 
-    # 초기 상태 기록
-    process_initiation_time = time.perf_counter()
+        if app.state.shutting_down:
+            raise fastapi.HTTPException(
+                status_code=503,
+                detail="Server is shutting down"
+            )
 
-    print_log(image_id, "Requested")
+        app.state.active_requests += 1
 
-    # 이미지 제공
-    image_bytes = naify_image_fetcher.fetch_image(image_id=image_id, secrets=naify_secrets, config=naify_config, prompt=prompt)
-    requested_webp = fastapi.Response(
-        content=image_bytes,
-        media_type="image/webp"
+    # 2. 등록에 성공한 요청만 try/finally로 관리
+    try:
+        # 이미지 ID 생성
+        image_id: str = naify_image_fetcher.make_image_id(prompt)
+
+        # 시작 시각 기록
+        process_initiation_time = time.perf_counter()
+
+        print_log(image_id, "Requested")
+
+        # 이미지 제공
+        image_bytes = naify_image_fetcher.fetch_image(
+            image_id=image_id,
+            secrets=naify_secrets,
+            config=naify_config,
+            prompt=prompt
+        )
+
+        requested_webp = fastapi.Response(
+            content=image_bytes,
+            media_type="image/webp"
+        )
+
+        # 소요 시간 계산
+        process_termination_time = time.perf_counter()
+        total_elapsed = process_termination_time - process_initiation_time
+
+        print_log(image_id, f"{round(total_elapsed, 2)}sec")
+
+        return requested_webp
+
+    finally:
+        # 3. 등록된 요청만 카운트 감소
+        with app.state.request_condition:
+
+            app.state.active_requests -= 1
+
+            app.state.request_condition.notify_all()
+
+
+
+@app.post("/shutdown")
+def request_shutdown(request: Request) -> dict:
+
+    request_origin = request.headers.get("origin")
+
+    if request_origin != "http://127.0.0.1:8000":
+        raise fastapi.HTTPException(
+            status_code=403,
+            detail="Forbidden"
+        )
+
+    server = request.app.state.uvicorn_server
+
+    with app.state.request_condition:
+
+        if app.state.shutting_down:
+            raise fastapi.HTTPException(
+                status_code=409,
+                detail="Shutdown already requested"
+            )
+
+        app.state.shutting_down = True
+
+    shutdown_thread = threading.Thread(
+        target=shutdown_server,
+        args=(app, server,),
+        daemon=True
     )
 
-    # 소요 시간 계산
-    process_termination_time = time.perf_counter()
-    total_elapsed = process_termination_time - process_initiation_time
-    print_log(image_id, f"{round(total_elapsed,2)}sec")
+    shutdown_thread.start()
 
-    return requested_webp
+    response = {
+        "message": "Server shutdown requested"
+    }
 
+    return response
 
+    
 # 서버 실행
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False, access_log=False)
+
+    uvicorn_config = uvicorn.Config(
+        app,
+        host="127.0.0.1",
+        port=8000,
+        reload=False,
+        access_log=False
+    )
+
+    uvicorn_server = uvicorn.Server(uvicorn_config)
+
+    app.state.uvicorn_server = uvicorn_server
+
+    uvicorn_server.run()
 
 # test urls : 
 # http://127.0.0.1:8000/
