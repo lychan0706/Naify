@@ -1,0 +1,259 @@
+/* ============================================================
+   Naify Manager - VS Code Inspired Dark Theme
+   ============================================================ */
+
+/* 전체 페이지에서 공유할 색상 */
+:root {
+    --bg-main: #252526;
+    --bg-card: #2d2d30;
+    --bg-input: #1e1e1e;
+    --text-primary: #d4d4d4;
+    --text-secondary: #9d9d9d;
+    --accent-primary: #dcdcaa;
+    --accent-secondary: #9cdcfe;
+    --color-success: #4ec9b0;
+    --color-error: #f44747;
+    --border-color: #3e3e42;
+}
+
+/* 모든 요소의 너비 계산에 padding과 border 포함 */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    /* 고정된 저장 버튼이 마지막 설정을 가리지 않도록 아래에 여백 확보 */
+    padding: 40px 24px 130px;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font: 15px/1.6 "Segoe UI", "Malgun Gothic", sans-serif;
+}
+
+/* 페이지 제목 */
+.page-header {
+    max-width: 1200px;
+    margin: 0 auto 32px;
+}
+
+.page-header h1 {
+    margin: 0 0 4px;
+    color: var(--accent-primary);
+    font-size: 32px;
+}
+
+.page-header p {
+    margin: 0;
+    color: var(--text-secondary);
+}
+
+/* 설정 카드 배치: PC 두 열 */
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.settings-card {
+    min-width: 0;
+    padding: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.settings-card h2 {
+    margin: 0 0 24px;
+    color: var(--accent-primary);
+    font-size: 20px;
+}
+
+/* 카드 내부의 입력 항목 간격 */
+.settings-card > div {
+    margin-bottom: 18px;
+}
+
+.settings-card > div:last-child {
+    margin-bottom: 0;
+}
+
+/* 프롬프트 편집기는 두 열 전체 사용 */
+.full-width {
+    grid-column: 1 / -1;
+}
+
+label {
+    display: inline-block;
+    margin-bottom: 6px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+input,
+select,
+textarea {
+    max-width: 100%;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font: 14px "Segoe UI", "Malgun Gothic", sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    border-color: var(--accent-secondary);
+}
+
+input[type="number"] {
+    width: 150px;
+}
+
+input[type="password"] {
+    width: min(100%, 350px);
+}
+
+select {
+    min-width: 180px;
+    cursor: pointer;
+}
+
+textarea {
+    display: block;
+    width: 100%;
+    max-width: none;
+    min-height: 150px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+button {
+    padding: 10px 20px;
+    background: var(--accent-primary);
+    color: var(--bg-input);
+    border: 0;
+    border-radius: 6px;
+    font: 600 14px "Segoe UI", "Malgun Gothic", sans-serif;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+button:hover {
+    background: #f0e6b2;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------
+   API 키 관리: 페이지 가장 아래의 접이식 패널
+   details/summary는 JavaScript 없이 접고 펼칠 수 있음
+   ------------------------------------------------------------ */
+.api-key-panel {
+    max-width: 1200px;
+    margin: 20px auto 0;
+}
+
+.api-key-panel summary {
+    cursor: pointer;
+    color: var(--accent-primary);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.api-key-panel summary::marker {
+    color: var(--accent-secondary);
+}
+
+.summary-hint {
+    margin-left: 10px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.api-key-panel-content {
+    padding-top: 18px;
+}
+
+.api-key-panel-content > div {
+    margin-bottom: 16px;
+}
+
+#api-key-status {
+    color: var(--color-success);
+}
+
+/* ------------------------------------------------------------
+   설정 저장 버튼: 스크롤해도 화면 오른쪽 아래에 고정
+   작은 반투명 패널로 만들고, 내용 뒤에는 충분한 여백 확보
+   ------------------------------------------------------------ */
+.save-actions {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: calc(100vw - 32px);
+    padding: 10px 12px;
+    background: rgba(45, 45, 48, 0.96);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.save-actions p {
+    margin: 0;
+    font-size: 13px;
+}
+
+.save-actions button {
+    flex-shrink: 0;
+    min-width: 130px;
+}
+
+/* 모바일: 카드 한 열 + 저장 버튼이 화면 폭에 맞도록 배치 */
+@media (max-width: 768px) {
+    body {
+        padding: 20px 16px 115px;
+    }
+
+    .page-header h1 {
+        font-size: 26px;
+    }
+
+    .settings-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .settings-card {
+        padding: 20px;
+    }
+
+    .settings-card h2 {
+        font-size: 18px;
+    }
+
+    .save-actions {
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        justify-content: space-between;
+    }
+}

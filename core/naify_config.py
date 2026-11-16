@@ -1,6 +1,4 @@
 # 상수 및 설정 
-import os
-from typing import Final
 from pydantic import BaseModel, field_validator
 from pydantic import ConfigDict
 from pydantic import Field

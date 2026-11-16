@@ -4,12 +4,12 @@ import time
 import threading
 from core import naify_image_fetcher 
 from core.naify_utility import print_log
-# from core.naify_api_work import get_anlas_balance
 from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from fastapi.responses import FileResponse
 from contextlib import asynccontextmanager
 from fastapi import Request
 from starlette.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.staticfiles import StaticFiles
 
 
 @asynccontextmanager
@@ -27,6 +27,12 @@ async def lifespan(app: fastapi.FastAPI):
 
 # FastAPI 앱 생성
 app = fastapi.FastAPI(debug=False, lifespan=lifespan)
+
+app.mount(
+    "/static",
+    StaticFiles(directory="web"),
+    name="static"
+)
 
 app.add_middleware(
     TrustedHostMiddleware,
@@ -54,7 +60,7 @@ def home() -> FileResponse:
 
 
 @app.get("/config")
-def get_config() -> fastapi.Response:
+def get_config() -> NaifyConfig:
 
     print_log(content="got config request")
 
