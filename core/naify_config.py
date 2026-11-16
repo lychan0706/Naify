@@ -8,7 +8,6 @@ from pathlib import Path
 
 CONFIG_PATH: Path = Path(__file__).resolve().parent.parent / "config.json"
 SECRETS_PATH: Path = Path(__file__).resolve().parent.parent / "secrets.json"
-NAI_API_KEY: Final[str] = os.environ["NOVELAI_API_KEY"]
 
 class NaifySecrets(BaseModel):
     nai_api_key: str = ""

@@ -52,7 +52,7 @@ def generation_request_queue_processor() -> None:
             else:
                 print_log(image_id=image_id, content="Generating...")
 
-                image_bytes = generate_image(image_id=image_id, naify_secrets=naify_secrets, naify_config=config, prompt=prompt)
+                image_bytes = generate_image(image_id=image_id, naify_secrets=secrets, naify_config=config, prompt=prompt)
 
                 print_log(image_id=image_id, content="Generated")
 
