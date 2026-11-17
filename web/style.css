@@ -127,7 +127,7 @@ body {
     justify-self: end;
 }
 
-/* 프롬프트 편집기는 두 열 전체 사용 */
+/* 전체 너비를 차지하는 설정 카드 */
 .full-width {
     grid-column: 1 / -1;
 }
@@ -235,7 +235,12 @@ summary:focus-visible {
 }
 
 .server-log-output {
+    width: 100%;
+    min-width: min(100%, 260px);
+    max-width: 100%;
     height: 280px;
+    min-height: 160px;
+    resize: both;
     overflow: auto;
     padding: 12px;
     background: var(--bg-input);
