@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naify Manager</title>
-    <link rel="stylesheet" href="/static/style.css?v=layout-3">
+    <link rel="stylesheet" href="/static/style.css?v=cache-click-4">
 </head>
 <body>
     <!-- 사이트 상단 제목 및 설명 -->
@@ -330,14 +330,24 @@
                     const preview = document.createElement("img");
                     const caption = document.createElement("figcaption");
 
-                    preview.src = `/cache/image/${encodeURIComponent(image.id)}`;
+                    const imageUrl = `/cache/image/${encodeURIComponent(image.id)}`;
+                    const openImage = document.createElement("a");
+                    openImage.href = imageUrl;
+                    openImage.target = "_blank";
+                    openImage.rel = "noopener";
+                    openImage.className = "cache-image-link";
+                    openImage.title = "이미지를 새 탭에서 열기";
+                    openImage.setAttribute("aria-label", `캐시 이미지 ${image.id.slice(0, 8)} 새 탭에서 열기`);
+
+                    preview.src = imageUrl;
                     preview.alt = `캐시 이미지 ${image.id.slice(0, 8)}`;
                     preview.loading = "lazy";
+                    openImage.appendChild(preview);
 
                     const date = new Date(image.modified_at * 1000);
                     caption.textContent = `${date.toLocaleString("ko-KR")} · ${(image.size / 1024).toFixed(0)} KB`;
 
-                    item.append(preview, caption);
+                    item.append(openImage, caption);
                     gallery.appendChild(item);
                 }
             } catch (error) {
