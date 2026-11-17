@@ -402,6 +402,9 @@
             button.disabled = true;
             statusElement.textContent = "종료 요청 중...";
 
+            // SSE 연결을 먼저 닫아 서버 종료를 가로막지 않도록 한다.
+            closeServerLogs();
+
             try {
                 const response = await fetch("/shutdown", {
                     method: "POST",
@@ -421,6 +424,7 @@
             } catch (error) {
                 statusElement.textContent = "종료 요청에 실패했습니다.";
                 button.disabled = false;
+                connectServerLogs(); // 종료 요청 실패 시 로그 수신 복구
                 console.error("[Naify] 종료 요청 실패:", error);
             }
         }
@@ -461,10 +465,21 @@
         }
 
         // 10. 서버 로그 실시간 수신 (Server-Sent Events)
+        let serverLogStream = null;
+
+        function closeServerLogs() {
+            if (serverLogStream !== null) {
+                serverLogStream.close();
+                serverLogStream = null;
+            }
+        }
+
         function connectServerLogs() {
+            closeServerLogs();
             const output = getInput("server-log-output");
             const status = getInput("log-connection-status");
             const stream = new EventSource("/logs/stream");
+            serverLogStream = stream;
             let lastRenderedId = 0;
 
             stream.onopen = () => {
@@ -509,7 +524,7 @@
                 status.classList.add("disconnected");
             };
 
-            window.addEventListener("pagehide", () => stream.close(), { once: true });
+            window.addEventListener("pagehide", closeServerLogs, { once: true });
         }
 
         // ------------------------------------------------------------
