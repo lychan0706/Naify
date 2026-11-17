@@ -1,5 +1,6 @@
 import fastapi
 import httpx
+import zipfile
 from typing import Final
 
 from core.naify_utility import extract_image_from_zip, print_log
@@ -59,7 +60,8 @@ def generate_image(image_id: str, naify_secrets: NaifySecrets, naify_config: Nai
     prompt = prompt.replace(",", ", ")
     prompt = prompt.replace(",  ", ", ")
 
-    generation_response = httpx.post(
+    try:
+        generation_response = httpx.post(
             timeout=120.0,
             url=NAI_API_URL,
             headers={"Authorization": f"Bearer {naify_secrets.nai_api_key}"},
@@ -119,8 +121,14 @@ def generate_image(image_id: str, naify_secrets: NaifySecrets, naify_config: Nai
                 }
             }
         )
+    except httpx.TimeoutException as exc:
+        print_log(image_id, f"NovelAI request timed out: {type(exc).__name__}")
+        raise fastapi.HTTPException(status_code=504, detail="NovelAI request timed out") from exc
+    except httpx.RequestError as exc:
+        print_log(image_id, f"NovelAI connection failed: {type(exc).__name__}")
+        raise fastapi.HTTPException(status_code=502, detail="Could not connect to NovelAI") from exc
 
-    if generation_response.status_code != 200:
+    if generation_response.status_code not in (200, 201):
         try:
             error_data = generation_response.json()
             error_message = (
@@ -129,13 +137,27 @@ def generate_image(image_id: str, naify_secrets: NaifySecrets, naify_config: Nai
             )
         except ValueError:
             error_message = generation_response.text
-        print_log(image_id, f"error - {generation_response.status_code} - {str(error_message)[:500]}")
+        print_log(image_id, f"NovelAI HTTP {generation_response.status_code}: {str(error_message)[:500]}")
+
+        if generation_response.status_code in (401, 403):
+            detail = "NovelAI authentication failed"
+            status_code = 502
+        elif generation_response.status_code == 429:
+            detail = "NovelAI generation is temporarily limited"
+            status_code = 503
+        else:
+            detail = "NovelAI Image Generation Failed"
+            status_code = 502
 
         raise fastapi.HTTPException(
-            status_code=502,
-            detail="NovelAI Image Generation Failed"
+            status_code=status_code,
+            detail=detail
         )
 
-    image_bytes = extract_image_from_zip(zip_data=generation_response.content)
+    try:
+        image_bytes = extract_image_from_zip(zip_data=generation_response.content)
+    except (zipfile.BadZipFile, ValueError, RuntimeError, EOFError, OSError) as exc:
+        print_log(image_id, f"Invalid NovelAI image archive: {type(exc).__name__}")
+        raise fastapi.HTTPException(status_code=502, detail="Invalid NovelAI image response") from exc
 
     return image_bytes

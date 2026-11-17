@@ -54,7 +54,7 @@ def wait_for_logs(last_seen_id: int) -> list[tuple[int, str]]:
 
 def extract_image_from_zip(zip_data: bytes) -> bytes:
     """
-    ZIP 바이너리 데이터에서 첫 번째 이미지 파일을 추출한다.
+    ZIP 바이너리 데이터에서 WebP 이미지 파일을 추출한다.
 
     Args:
         zip_data: ZIP 파일의 바이너리 데이터.
@@ -65,7 +65,15 @@ def extract_image_from_zip(zip_data: bytes) -> bytes:
 
     zip_file = io.BytesIO(zip_data)
     with zipfile.ZipFile(zip_file, "r") as response_zip:
-        image_bytes = response_zip.read(response_zip.namelist()[0])
+        image_files = [
+            entry for entry in response_zip.infolist()
+            if not entry.is_dir() and entry.filename.lower().endswith(".webp")
+        ]
+        if not image_files:
+            raise ValueError("No WebP image found in NovelAI response")
+        image_bytes = response_zip.read(image_files[0])
+        if len(image_bytes) < 12 or image_bytes[:4] != b"RIFF" or image_bytes[8:12] != b"WEBP":
+            raise ValueError("Invalid WebP image data")
     return image_bytes
 
 

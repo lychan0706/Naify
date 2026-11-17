@@ -1,8 +1,10 @@
 import asyncio
+import io
 import tempfile
 import threading
 import time
 import unittest
+import zipfile
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -11,6 +13,13 @@ from fastapi import HTTPException
 
 from core import naify_api_work, naify_config, naify_image_fetcher, naify_utility
 import main
+
+
+def image_archive(filename: str = "image.webp", data: bytes = b"RIFF\x04\x00\x00\x00WEBP") -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(filename, data)
+    return buffer.getvalue()
 
 
 class ReleaseFixTests(unittest.TestCase):
@@ -58,10 +67,12 @@ class ReleaseFixTests(unittest.TestCase):
         original = main.naify_config
         try:
             config = naify_config.NaifyConfig(generation={"width": 3008, "height": 1000})
-            with patch.object(main, "save_config") as save:
+            with patch.object(main, "save_config") as save, \
+                    patch.object(main.naify_cache, "trim_cache") as trim:
                 main.update_config(config, request)
             self.assertEqual((config.generation.width, config.generation.height), (2496, 1024))
             save.assert_called_once_with(config)
+            trim.assert_called_once_with(config.cache)
         finally:
             main.naify_config = original
 
@@ -87,6 +98,61 @@ class ReleaseFixTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as raised:
                 naify_api_work.generate_image("id", naify_config.NaifySecrets(), naify_config.NaifyConfig(), "prompt")
         self.assertEqual(raised.exception.status_code, 502)
+
+    def test_api_auth_failure_is_502(self):
+        response = Mock(status_code=401, text="Unauthorized")
+        response.json.return_value = {"message": "Unauthorized"}
+        with patch.object(naify_api_work.httpx, "post", return_value=response):
+            with self.assertRaises(HTTPException) as raised:
+                naify_api_work.generate_image("id", naify_config.NaifySecrets(), naify_config.NaifyConfig(), "prompt")
+        self.assertEqual((raised.exception.status_code, raised.exception.detail), (502, "NovelAI authentication failed"))
+
+    def test_api_generation_limit_is_503_without_retry(self):
+        response = Mock(status_code=429, text="Concurrent generation locked")
+        response.json.return_value = {"message": "Concurrent generation locked"}
+        with patch.object(naify_api_work.httpx, "post", return_value=response) as post:
+            with self.assertRaises(HTTPException) as raised:
+                naify_api_work.generate_image("id", naify_config.NaifySecrets(), naify_config.NaifyConfig(), "prompt")
+        self.assertEqual(raised.exception.status_code, 503)
+        post.assert_called_once()
+
+    def test_api_timeout_and_connection_errors(self):
+        cases = [(naify_api_work.httpx.ReadTimeout("timeout"), 504),
+                 (naify_api_work.httpx.ConnectError("connection failed"), 502)]
+        for error, status_code in cases:
+            with self.subTest(error=type(error).__name__):
+                with patch.object(naify_api_work.httpx, "post", side_effect=error) as post:
+                    with self.assertRaises(HTTPException) as raised:
+                        naify_api_work.generate_image("id", naify_config.NaifySecrets(), naify_config.NaifyConfig(), "prompt")
+                self.assertEqual(raised.exception.status_code, status_code)
+                post.assert_called_once()
+
+    def test_invalid_image_archives_return_502(self):
+        invalid_archives = [
+            b"not a zip",
+            image_archive("notes.txt", b"some notes"),
+            image_archive(data=b"fake webp"),
+        ]
+        for archive in invalid_archives:
+            with self.subTest(archive=archive[:12]):
+                response = Mock(status_code=200, content=archive)
+                with patch.object(naify_api_work.httpx, "post", return_value=response):
+                    with self.assertRaises(HTTPException) as raised:
+                        naify_api_work.generate_image("id", naify_config.NaifySecrets(), naify_config.NaifyConfig(), "prompt")
+                self.assertEqual(raised.exception.status_code, 502)
+
+    def test_zip_extraction_uses_webp_instead_of_first_file(self):
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w") as archive:
+            archive.writestr("meta.txt", "metadata")
+            archive.writestr("image.webp", b"RIFF\x04\x00\x00\x00WEBP")
+        self.assertEqual(naify_utility.extract_image_from_zip(buffer.getvalue()), b"RIFF\x04\x00\x00\x00WEBP")
+
+    def test_successful_201_image_response(self):
+        response = Mock(status_code=201, content=image_archive())
+        with patch.object(naify_api_work.httpx, "post", return_value=response):
+            result = naify_api_work.generate_image("id", naify_config.NaifySecrets(), naify_config.NaifyConfig(), "prompt")
+        self.assertTrue(result.startswith(b"RIFF"))
 
     def test_generation_request_omits_seed(self):
         response = Mock(status_code=200, content=b"zip-data")

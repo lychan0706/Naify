@@ -119,6 +119,7 @@ def update_config(config: NaifyConfig, request: Request) -> None:
     config.generation.fit_resolution(preferred)
     save_config(config)
     naify_config = config
+    naify_cache.trim_cache(config.cache)
 
     print_log(content="config updated")
 
