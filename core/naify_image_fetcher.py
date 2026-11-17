@@ -1,5 +1,5 @@
 from concurrent.futures import Future, TimeoutError as FutureTimeoutError
-from queue import Queue
+from queue import Queue, Empty
 from hashlib import sha256
 from core.naify_cache import get_image_from_cache
 from core.naify_api_work import generate_image
@@ -70,7 +70,8 @@ def generation_request_queue_processor() -> None:
                 process_termination_time = time.perf_counter()
                 total_elapsed = process_termination_time - process_initiation_time
 
-                print_log(image_id=image_id, content=f"Generated: {round(total_elapsed, 2)}sec")
+                pending_count = generation_request_queue.qsize()
+                print_log(image_id=image_id, content=f"Generated: {round(total_elapsed, 2)}sec | {pending_count} more left")
 
                 naify_cache.save_image_to_cache(image_id, image_bytes)
                 naify_cache.trim_cache(config.cache)
@@ -82,6 +83,33 @@ def generation_request_queue_processor() -> None:
 
         finally:
             generation_request_queue.task_done()
+
+def cancel_pending_requests() -> int:
+    """
+    큐에서 아직 Worker가 가져가지 않은 요청을 취소한다.
+    현재 생성 중인 작업은 큐에서 이미 빠져 있으므로 영향을 받지 않는다.
+    """
+    cancelled_count = 0
+
+    while True:
+        try:
+            image_id, secrets, config, prompt, future = generation_request_queue.get_nowait()
+        except Empty:
+            break
+
+        try:
+            future.set_exception(
+                HTTPException(status_code=503, detail="Image generation request cancelled")
+            )
+            cancelled_count += 1
+        finally:
+            # get()으로 꺼낸 모든 작업은 반드시 완료 처리해야 종료 대기가 풀린다.
+            generation_request_queue.task_done()
+
+    print_log(content=f"Cancelled {cancelled_count} pending generation requests")
+
+    return cancelled_count
+
 
 def make_image_id(prompt: str) -> str:
     image_id = sha256(prompt.encode("utf-8")).hexdigest()
