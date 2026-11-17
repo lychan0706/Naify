@@ -1,46 +1,35 @@
 # Naify
 
-**Turn Markdown image URLs into on-demand NovelAI images.**
+**Markdown 이미지 URL을 NovelAI 이미지 생성 요청으로 연결하는 로컬 서버**
 
-Naify is a local FastAPI server that accepts an image prompt through a URL, requests an image from the NovelAI API, and returns the generated image as WebP. It is designed to work with Markdown image syntax such as `![](URL)`.
+Naify는 URL의 `prompt` 매개변수로 이미지 생성 요청을 받고, NovelAI API로 WebP 이미지를 생성해 반환하는 프로그램입니다. Markdown의 `![](URL)` 문법으로 사용할 수 있으며, 동일한 프롬프트로 생성한 이미지는 로컬에 캐시합니다.
 
-> **Status:** v0.6.0dev — pre-release development. Windows executable packaging has been tested locally; a public binary release is not yet available. Android currently requires a manual Python/Termux setup. An Android APK is planned for a later version.
+> **개발 상태: v0.7.0dev (정식 릴리즈 준비 중)**
+>
+> Windows에서 실행할 수 있으며, Android는 현재 Termux에서 Python으로 실행해야 합니다. 배포 파일은 [Releases](https://github.com/lychan0706/Naify/releases)에서 확인할 수 있습니다.
 
-## Features
+## 주요 기능
 
-- Generate images through NovelAI Diffusion models supported by the configured API.
-- Use URLs directly in Markdown image tags.
-- Cache generated WebP images using a SHA-256 hash of the requested prompt.
-- Queue image generation requests to avoid concurrent NovelAI generation calls.
-- Limit the cache by total size and image count, with automatic cleanup.
-- Configure generation options, base/negative prompts, and an API key through a local web manager.
-- Browse and clear cached images in the web manager.
-- Shut down the server safely after active generation requests finish.
+- Markdown 이미지 URL을 통한 NovelAI 이미지 생성 및 WebP 반환
+- 단일 Worker와 요청 큐를 통한 이미지 생성 순차 처리
+- SHA-256 이미지 ID를 이용한 캐시 재사용
+- 용량과 이미지 개수 기준의 자동 캐시 정리
+- 웹 관리자에서 생성 옵션·프롬프트·API 키 설정
+- 캐시 이미지 미리보기, 새 탭에서 보기, 전체 삭제
+- 서버 로그 실시간 표시 및 진행 중인 요청을 기다리는 종료 기능
+- 오류 응답 처리, 설정 파일 안전 저장 및 Worker 비정상 종료 감지
 
-## How it works
+## Windows에서 실행
 
-1. A Markdown viewer requests `http://127.0.0.1:8000/get_image?prompt=...`.
-2. Naify checks the cache for the SHA-256 hash of the prompt.
-3. If cached, the WebP image is returned immediately.
-4. Otherwise, the request is queued, sent to NovelAI, cached, and returned as a WebP image.
+### 실행 파일 사용
 
-**Note:** The current cache key is based on the URL prompt alone. Changing generation settings or the base/negative prompts does not automatically invalidate an existing cached image with the same URL prompt.
+배포된 `Naify.exe`가 있다면 [Releases](https://github.com/lychan0706/Naify/releases)에서 내려받아 실행합니다. 실행 파일에는 Python 실행 환경과 필요한 라이브러리가 포함되므로 별도의 Python 설치가 필요하지 않습니다.
 
-## Windows
+서버가 시작되면 기본 브라우저에서 관리자 페이지(`http://127.0.0.1:8000/`)가 열립니다. NovelAI API 키를 등록하고 이미지 생성 설정을 저장한 뒤 사용하면 됩니다.
 
-### Standalone executable
+### 소스코드로 실행
 
-When a Windows build is published, download `Naify.exe` from the [Releases](https://github.com/lychan0706/Naify/releases) page and run it.
-
-The executable bundles Python and its dependencies: users do **not** need to install Python or pip.
-
-The server starts on `http://127.0.0.1:8000/`, and Naify opens the web manager in your default browser. Enter your own NovelAI API key and adjust the generation settings before making image requests.
-
-The API key and cache are stored outside the executable so they can persist across application updates.
-
-### Run from source
-
-Requires Python 3.13 and an internet connection for image generation.
+Python 3.13을 기준으로 개발했습니다.
 
 ```powershell
 git clone https://github.com/lychan0706/Naify.git
@@ -49,67 +38,101 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-Open `http://127.0.0.1:8000/` if the web manager does not open automatically.
+관리자 페이지가 자동으로 열리지 않으면 브라우저에서 `http://127.0.0.1:8000/`에 접속합니다.
 
-## Using Naify in Markdown
+## Markdown에서 사용
 
-After starting Naify and configuring your NovelAI API key, add an image URL:
+Naify를 실행하고 API 키를 설정한 다음 Markdown에 이미지 URL을 넣습니다.
 
 ```markdown
-![Generated image](http://127.0.0.1:8000/get_image?prompt=1girl%2C%20blue%20eyes)
+![생성된 이미지](http://127.0.0.1:8000/get_image?prompt=1girl%2C%20blue%20eyes)
 ```
 
-The `prompt` query parameter contains the image-specific prompt. URL-encode special characters and spaces when constructing the URL.
+동작 순서는 다음과 같습니다.
 
-The server must be running when the Markdown viewer fetches the image. Because `127.0.0.1` refers to the **device running the viewer**, a viewer on another device cannot access your PC's local Naify server through this URL.
+1. `/get_image?prompt=...`로 이미지 요청을 받습니다.
+2. 프롬프트의 SHA-256 해시를 이미지 ID로 사용하여 캐시를 조회합니다.
+3. 캐시가 없으면 생성 요청을 큐에 넣고 NovelAI API로 전송합니다.
+4. 반환된 WebP 이미지를 캐시에 저장하고 요청한 클라이언트에 전달합니다.
 
-The same prompt will normally return the cached image until that cache entry is removed.
+URL의 공백과 특수문자는 URL 인코딩해야 합니다. 서버가 실행 중이어야 이미지를 받을 수 있습니다.
 
-## Data storage
+**주의:** `127.0.0.1`은 이미지를 표시하는 프로그램이 실행 중인 기기 자신을 의미합니다. 다른 기기에서는 위 URL로 PC의 Naify 서버에 접근할 수 없습니다.
 
-| Environment | User data directory |
+### 이미지 생성 설정과 캐시
+
+- 생성 모델, 해상도, Steps, 가이던스, Seed, 샘플러, 노이즈 스케줄을 웹 관리자에서 설정할 수 있습니다.
+- Seed가 `-1`이면 자동 선택을 사용하며, 0 이상의 값은 NovelAI API 요청에 전달합니다.
+- 기본 프롬프트와 네거티브 프롬프트는 관리자에서 설정하고, 이미지별 프롬프트는 URL에서 받습니다.
+- **캐시 ID는 URL의 프롬프트만으로 결정됩니다.** 생성 설정이나 기본/네거티브 프롬프트를 변경해도 같은 URL은 기존 캐시를 반환합니다. 새 설정으로 다시 생성하려면 해당 캐시를 삭제해야 합니다.
+- 캐시 용량 및 개수 제한은 이미지가 새로 생성된 뒤 자동 정리 과정에서 적용됩니다.
+
+## 웹 관리자
+
+`http://127.0.0.1:8000/`에서 다음 기능을 사용할 수 있습니다.
+
+| 기능 | 설명 |
+| --- | --- |
+| 이미지 생성 설정 | 모델, 크기, Steps, Seed 등의 옵션 변경 |
+| 프롬프트 설정 | 기본 프롬프트 및 네거티브 프롬프트 변경 |
+| 캐시 설정 | 최대 캐시 용량(MB)과 이미지 개수 지정 |
+| 캐시 이미지 확인 | 목록 펼치기, 이미지 새 탭에서 보기, 새로고침 및 전체 삭제 |
+| API 키 관리 | NovelAI API 키 등록 및 변경 |
+| 서버 로그 | 최근 로그를 실시간 표시 |
+| Naify 종료 | 처리 중인 이미지 요청이 완료된 뒤 서버 종료 |
+
+브라우저 탭만 닫아서는 서버가 종료되지 않습니다. 관리자 페이지의 **Naify 종료** 버튼을 사용합니다.
+
+## 데이터 저장 위치
+
+| 환경 | 사용자 데이터 경로 |
 | --- | --- |
 | Windows | `%LOCALAPPDATA%\Naify\` |
-| Termux / other POSIX environments | `~/.local/share/naify/` |
+| Termux 및 기타 POSIX 환경 | `~/.local/share/naify/` |
 
-The directory contains:
+저장 항목은 다음과 같습니다.
 
-- `config.json` — generation and cache settings.
-- `secrets.json` — NovelAI API key.
-- `cache/` — generated WebP files.
+- `config.json`: 이미지 생성 및 캐시 설정
+- `secrets.json`: NovelAI API 키
+- `cache/`: 생성된 WebP 이미지
 
-**Keep `secrets.json` private.** It contains the API key in plain text. Do not commit or share it.
+설정과 API 키는 임시 파일에 기록한 다음 교체하여 저장 중 오류로 기존 파일이 손상될 위험을 줄입니다.
 
-Microsoft Store versions of Python may transparently redirect AppData writes into the Python package's private `LocalCache` directory. A standalone, non-packaged Windows executable does not use that Python-specific redirection.
+**`secrets.json`에는 API 키가 평문으로 저장됩니다.** 이 파일을 공유하거나 Git 저장소에 커밋하지 마세요.
+
+Microsoft Store에서 설치한 Python은 AppData 기록을 Python 패키지의 전용 `LocalCache` 경로로 리디렉션할 수 있습니다.
 
 ## Android / Termux
 
-Naify has been run through Python in Termux, but there is currently no published Android APK or automated installer. For manual use, install Python and the project dependencies in Termux and run `python main.py` from the repository directory.
+현재 Android APK는 제공되지 않습니다. Termux에서 Python과 `requirements.txt`의 의존성을 설치한 다음 `python main.py`로 실행할 수 있습니다. Android 전용 설치 및 백그라운드 실행 지원은 추후 과제입니다.
 
-Android APK packaging and Android-specific app lifecycle/background execution support are future work.
+## 개발 및 테스트
 
-## Requirements and limitations
+주요 기술: Python, FastAPI, Uvicorn, httpx, Pydantic, HTML, CSS, JavaScript
 
-- A valid NovelAI API key is required to generate new images.
-- Image generation uses NovelAI's service and may consume account credits/Anlas according to your account and settings.
-- The server currently binds to `127.0.0.1:8000` only.
-- Another application using port 8000 will prevent the server from starting normally.
-- Windows may show a SmartScreen warning for an unsigned executable.
-- Naify is an independent project and is not affiliated with NovelAI.
+자동화 테스트 실행:
 
-## Development
+```powershell
+python -m unittest discover -s tests -v
+```
 
-Core technologies: Python, FastAPI, Uvicorn, httpx, Pydantic, HTML, CSS, and JavaScript.
-
-To create a Windows one-file build using PyInstaller:
+Windows에서 PyInstaller 단일 실행 파일 빌드:
 
 ```powershell
 python -m pip install pyinstaller
 python -m PyInstaller --onefile --add-data "web;web" --name Naify main.py
 ```
 
-The resulting executable is placed in `dist/Naify.exe`. Build on Windows for a Windows executable. Test the executable before distributing it.
+빌드 결과는 `dist/Naify.exe`입니다. 배포 전에 Windows에서 직접 실행하고 이미지 생성 및 종료 동작을 확인해야 합니다.
 
-## License
+## 알려진 제약
 
-No license file has been published yet. Until a license is added, this repository does not grant general permission to redistribute or modify the source code.
+- NovelAI API 키 및 인터넷 연결이 필요합니다.
+- 이미지 생성은 NovelAI 구독 상태와 설정에 따라 Anlas를 소비할 수 있습니다.
+- 서버는 기본적으로 `127.0.0.1:8000`에서만 실행하며, 해당 포트를 다른 프로그램이 사용 중이면 시작할 수 없습니다.
+- 서명되지 않은 Windows 실행 파일에는 SmartScreen 경고가 표시될 수 있습니다.
+- Naify는 NovelAI와 제휴하거나 공식적으로 지원받는 프로젝트가 아닙니다.
+
+## 라이선스
+
+현재 별도의 라이선스 파일이 없습니다. 라이선스가 추가되기 전까지 소스코드의 재배포 및 수정에 관한 일반적인 허가가 부여된 것은 아닙니다.
