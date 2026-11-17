@@ -31,7 +31,6 @@ def get_resource_dir() -> Path:
 def ensure_data_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    print_log(content=f"Data Directory = {DATA_DIR}")
         
 
 DATA_DIR: Final[Path] = get_data_dir()
