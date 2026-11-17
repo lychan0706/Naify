@@ -47,6 +47,34 @@ body {
     color: var(--text-secondary);
 }
 
+.server-close-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 14px 16px;
+    background: #3a3226;
+    border: 1px solid #85652e;
+    border-radius: 8px;
+}
+
+.server-close-notice-icon {
+    display: grid;
+    flex: 0 0 22px;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent-primary);
+    color: var(--bg-input);
+    font-weight: 700;
+}
+
+.page-header .server-close-notice p {
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
 /* 설정 카드 배치: PC 두 열 */
 .settings-grid {
     display: grid;
