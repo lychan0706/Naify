@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naify Manager</title>
-    <link rel="stylesheet" href="/static/style.css?v=cache-layout-5">
+    <link rel="stylesheet" href="/static/style.css?v=queue-control-1">
 </head>
 <body>
     <!-- 사이트 상단 제목 및 설명 -->
@@ -75,12 +75,16 @@
     <section class="settings-card server-log-panel" aria-labelledby="server-log-title">
         <div class="server-log-header">
             <h2 id="server-log-title">실시간 서버 로그</h2>
-            <span id="log-connection-status" class="log-connection-status" role="status">연결 중...</span>
+            <div class="server-log-actions">
+                <span id="log-connection-status" class="log-connection-status" role="status">연결 중...</span>
+                <button type="button" id="cancel-pending-button" class="danger-button">대기 요청 모두 취소</button>
+            </div>
         </div>
         <div class="server-log-container">
             <div id="server-log-output" class="server-log-output" role="log" aria-label="Naify 서버 로그"></div>
             <button type="button" id="server-log-resize" class="server-log-resize" aria-label="로그 창 높이 조절" title="드래그해서 로그 창 높이 조절"></button>
         </div>
+        <p id="cancel-pending-status" class="queue-action-status" role="status" aria-live="polite"></p>
         <p class="server-log-hint">최근 300줄을 표시합니다. 박스 오른쪽 아래 손잡이를 드래그해 높이를 조절할 수 있습니다.</p>
     </section>
 
@@ -429,7 +433,41 @@
         }
 
         // ------------------------------------------------------------
-        // 9. Naify 서버 종료
+        // 9. 대기 중인 생성 요청 취소
+        //    Worker가 이미 시작한 생성은 유지하고, 큐에서 기다리는 요청만 취소한다.
+        // ------------------------------------------------------------
+        async function cancelPendingGenerationRequests() {
+            const confirmed = confirm(
+                "대기 중인 이미지 생성 요청을 모두 취소하시겠습니까?\n현재 생성 중인 이미지는 계속 처리됩니다."
+            );
+            if (!confirmed) return;
+
+            const button = getInput("cancel-pending-button");
+            const statusElement = getInput("cancel-pending-status");
+            button.disabled = true;
+
+            try {
+                const response = await fetch("/queue/cancel_pending", {
+                    method: "POST",
+                    headers: { "X-Naify-Action": "cancel-pending" }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`대기 요청 취소 실패: HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                showTemporaryStatus(statusElement, `대기 요청 ${result.cancelled_count}건을 취소했습니다.`);
+            } catch (error) {
+                showTemporaryStatus(statusElement, "대기 요청 취소에 실패했습니다.");
+                console.error("[Naify] 대기 요청 취소 실패:", error);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        // ------------------------------------------------------------
+        // 10. Naify 서버 종료
         //    종료 요청은 즉시 응답하고, Python은 기존 이미지 작업을 마친 뒤 종료한다.
         //    브라우저가 탭 자동 닫기를 허용하지 않으면 종료 안내 화면을 보여준다.
         // ------------------------------------------------------------
@@ -574,6 +612,7 @@
         getInput("save-api-key").addEventListener("click", saveApiKey);
         getInput("refresh-cache").addEventListener("click", loadCacheGallery);
         getInput("clear-cache").addEventListener("click", clearAllCache);
+        getInput("cancel-pending-button").addEventListener("click", cancelPendingGenerationRequests);
         getInput("shutdown-button").addEventListener("click", shutdownNaify);
         getInput("cache-gallery-panel").addEventListener("toggle", (event) => {
             if (event.target.open) {
