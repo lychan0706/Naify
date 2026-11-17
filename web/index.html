@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naify Manager</title>
-    <link rel="stylesheet" href="/static/style.css?v=log-resize-2">
+    <link rel="stylesheet" href="/static/style.css?v=layout-3">
 </head>
 <body>
     <!-- 사이트 상단 제목 및 설명 -->
@@ -12,8 +12,7 @@
         <h1>Naify</h1>
         <p>이미지 생성 및 설정 관리</p>
         <div class="server-close-notice" role="note">
-            <span class="server-close-notice-icon" aria-hidden="true">!</span>
-            <p><strong>브라우저 탭을 닫아도 Naify 서버는 계속 실행됩니다.</strong><br>프로그램을 완전히 종료하려면 페이지 하단의 <strong>Naify 종료</strong> 버튼을 사용하세요.</p>
+            <p><strong>안내:</strong> 브라우저 탭을 닫아도 Naify 서버는 계속 실행됩니다.<br>완전히 종료하려면 페이지 하단의 <strong>Naify 종료</strong> 버튼을 사용하세요.</p>
         </div>
     </header>
 
@@ -66,12 +65,6 @@
             <div><label for="negative_prompt">네거티브 프롬프트:</label><br><textarea id="negative_prompt" rows="8" cols="80"></textarea></div>
         </section>
 
-        <!-- 캐시 설정: 기존 프롬프트 설정의 전체 너비 자리로 이동 -->
-        <section class="settings-card full-width aligned-fields">
-            <h2>캐시 설정</h2>
-            <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
-            <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
-        </section>
     </main>
 
     <!-- SSE를 통해 서버 로그를 실시간 표시한다. -->
@@ -82,15 +75,20 @@
         </div>
         <div class="server-log-container">
             <div id="server-log-output" class="server-log-output" role="log" aria-label="Naify 서버 로그"></div>
-            <button type="button" id="server-log-resize" class="server-log-resize" aria-label="로그 창 크기 조절" title="드래그해서 로그 창 크기 조절"></button>
+            <button type="button" id="server-log-resize" class="server-log-resize" aria-label="로그 창 높이 조절" title="드래그해서 로그 창 높이 조절"></button>
         </div>
-        <p class="server-log-hint">최근 300줄을 표시합니다. 박스 오른쪽 아래 모서리를 드래그해 크기를 조절할 수 있우.</p>
+        <p class="server-log-hint">최근 300줄을 표시합니다. 박스 오른쪽 아래 손잡이를 드래그해 높이를 조절할 수 있우.</p>
     </section>
 
     <!-- 캐시 갤러리는 필요할 때만 펼치며, 이미지들은 최신순으로 표시한다. -->
     <details class="settings-card cache-gallery-panel" id="cache-gallery-panel">
         <summary>캐시 이미지 확인 <span class="summary-hint">클릭하여 펼치기</span></summary>
         <div class="cache-gallery-content">
+            <fieldset class="cache-settings-fields">
+                <legend>캐시 설정</legend>
+                <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
+                <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
+            </fieldset>
             <p id="cache-status" role="status">캐시 현황을 확인하는 중...</p>
             <div class="cache-gallery-actions">
                 <button type="button" id="refresh-cache">목록 새로고침</button>
@@ -439,16 +437,11 @@
                 if (event.button !== 0) return;
                 event.preventDefault();
 
-                const startX = event.clientX;
                 const startY = event.clientY;
-                const startWidth = container.offsetWidth;
                 const startHeight = container.offsetHeight;
                 handle.setPointerCapture(event.pointerId);
 
                 function onMove(moveEvent) {
-                    const maxWidth = container.parentElement.clientWidth;
-                    const minWidth = Math.min(260, maxWidth);
-                    container.style.width = Math.max(minWidth, Math.min(maxWidth, startWidth + moveEvent.clientX - startX)) + "px";
                     container.style.height = Math.max(160, startHeight + moveEvent.clientY - startY) + "px";
                 }
 
