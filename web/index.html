@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naify Manager</title>
-    <link rel="stylesheet" href="/static/style.css?v=cache-click-4">
+    <link rel="stylesheet" href="/static/style.css?v=cache-layout-5">
 </head>
 <body>
     <!-- 사이트 상단 제목 및 설명 -->
@@ -85,24 +85,26 @@
         <p class="server-log-hint">최근 300줄을 표시합니다. 박스 오른쪽 아래 손잡이를 드래그해 높이를 조절할 수 있우.</p>
     </section>
 
-    <!-- 캐시 갤러리는 필요할 때만 펼치며, 이미지들은 최신순으로 표시한다. -->
-    <details class="settings-card cache-gallery-panel" id="cache-gallery-panel">
-        <summary>캐시 이미지 확인 <span class="summary-hint">클릭하여 펼치기</span></summary>
-        <div class="cache-gallery-content">
-            <fieldset class="cache-settings-fields">
-                <legend>캐시 설정</legend>
-                <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
-                <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
-            </fieldset>
-            <p id="cache-status" role="status">캐시 현황을 확인하는 중...</p>
-            <div class="cache-gallery-actions">
-                <button type="button" id="refresh-cache">목록 새로고침</button>
-                <button type="button" id="clear-cache" class="danger-button">캐시 전체 삭제</button>
+    <!-- 캐시 설정은 항상 표시하고, 이미지 목록만 접고 펼친다. -->
+    <section class="settings-card cache-gallery-panel">
+        <fieldset class="cache-settings-fields">
+            <legend>캐시 설정</legend>
+            <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
+            <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
+        </fieldset>
+        <details class="cache-image-details" id="cache-gallery-panel">
+            <summary>캐시 이미지 확인 <span class="summary-hint">클릭하여 펼치기</span></summary>
+            <div class="cache-gallery-content">
+                <p id="cache-status" role="status">캐시 현황을 확인하는 중...</p>
+                <div class="cache-gallery-actions">
+                    <button type="button" id="refresh-cache">목록 새로고침</button>
+                    <button type="button" id="clear-cache" class="danger-button">캐시 전체 삭제</button>
+                </div>
+                <p id="cache-action-status" role="status"></p>
+                <div id="cache-gallery" class="cache-gallery" aria-live="polite"></div>
             </div>
-            <p id="cache-action-status" role="status"></p>
-            <div id="cache-gallery" class="cache-gallery" aria-live="polite"></div>
-        </div>
-    </details>
+        </details>
+    </section>
 
     <!-- 자주 바꾸지 않는 API 키는 페이지 맨 아래에서 필요할 때만 펼침 -->
     <details class="settings-card api-key-panel">
@@ -141,6 +143,19 @@
         function getInput(id) {
             const element = document.getElementById(id);
             return element;
+        }
+
+        // 작업 결과 메시지는 몇 초 뒤 자동으로 숨긴다.
+        const statusTimers = new WeakMap();
+
+        function showTemporaryStatus(element, message, delay = 4000) {
+            clearTimeout(statusTimers.get(element));
+            element.textContent = message;
+            const timer = setTimeout(() => {
+                if (element.textContent === message) element.textContent = "";
+                statusTimers.delete(element);
+            }, delay);
+            statusTimers.set(element, timer);
         }
 
         // ------------------------------------------------------------
@@ -226,14 +241,14 @@
                 });
 
                 if (!response.ok) {
-                    statusElement.textContent = `설정 저장 실패 (HTTP ${response.status})`;
+                    showTemporaryStatus(statusElement, `설정 저장 실패 (HTTP ${response.status})`);
                     return;
                 }
 
-                statusElement.textContent = "설정 저장 완료!";
+                showTemporaryStatus(statusElement, "설정 저장 완료!");
                 await loadConfig();
             } catch (error) {
-                statusElement.textContent = "서버에 연결할 수 없습니다.";
+                showTemporaryStatus(statusElement, "서버에 연결할 수 없습니다.");
                 console.error("[Naify] 설정 저장 실패:", error);
             }
         }
@@ -274,7 +289,7 @@
 
             // 실수로 빈 문자열을 보내 기존 키를 지우지 않도록 막는다.
             if (apiKey.length === 0) {
-                statusElement.textContent = "API 키를 입력하습니다.";
+                showTemporaryStatus(statusElement, "API 키를 입력하세요.");
                 return;
             }
 
@@ -289,15 +304,15 @@
                 });
 
                 if (!response.ok) {
-                    statusElement.textContent = `API 키 변경 실패 (HTTP ${response.status})`;
+                    showTemporaryStatus(statusElement, `API 키 변경 실패 (HTTP ${response.status})`);
                     return;
                 }
 
-                statusElement.textContent = "API 키가 변경되었습니다!";
+                showTemporaryStatus(statusElement, "API 키가 변경되었습니다!");
                 apiKeyInput.value = ""; // 성공 후 화면에 입력한 키를 남기지 않음
                 await loadApiKeyStatus();
             } catch (error) {
-                statusElement.textContent = "서버에 연결할 수 없습니다.";
+                showTemporaryStatus(statusElement, "서버에 연결할 수 없습니다.");
                 // 민감한 API 키 값은 콘솔에 기록하지 않는다.
                 console.error("[Naify] API 키 변경 실패:", error);
             }
@@ -386,10 +401,10 @@
                 }
 
                 const result = await response.json();
-                statusElement.textContent = `캐시 이미지 ${result.deleted_count}개를 삭제했습니다.`;
+                showTemporaryStatus(statusElement, `캐시 이미지 ${result.deleted_count}개를 삭제했습니다.`);
                 await loadCacheGallery();
             } catch (error) {
-                statusElement.textContent = "캐시 삭제에 실패했습니다.";
+                showTemporaryStatus(statusElement, "캐시 삭제에 실패했습니다.");
                 console.error("[Naify] 캐시 삭제 실패:", error);
             } finally {
                 button.disabled = false;
@@ -435,7 +450,7 @@
                 // 그 경우 위 안내 화면이 그대로 남아 사용자가 직접 닫을 수 있다.
                 setTimeout(() => window.close(), 400);
             } catch (error) {
-                statusElement.textContent = "종료 요청에 실패했습니다.";
+                showTemporaryStatus(statusElement, "종료 요청에 실패했습니다.");
                 button.disabled = false;
                 connectServerLogs(); // 종료 요청 실패 시 로그 수신 복구
                 console.error("[Naify] 종료 요청 실패:", error);
