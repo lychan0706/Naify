@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naify Manager</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=log-resize-2">
 </head>
 <body>
     <!-- 사이트 상단 제목 및 설명 -->
@@ -80,7 +80,10 @@
             <h2 id="server-log-title">실시간 서버 로그</h2>
             <span id="log-connection-status" class="log-connection-status" role="status">연결 중...</span>
         </div>
-        <div id="server-log-output" class="server-log-output" role="log" aria-label="Naify 서버 로그"></div>
+        <div class="server-log-container">
+            <div id="server-log-output" class="server-log-output" role="log" aria-label="Naify 서버 로그"></div>
+            <button type="button" id="server-log-resize" class="server-log-resize" aria-label="로그 창 크기 조절" title="드래그해서 로그 창 크기 조절"></button>
+        </div>
         <p class="server-log-hint">최근 300줄을 표시합니다. 박스 오른쪽 아래 모서리를 드래그해 크기를 조절할 수 있우.</p>
     </section>
 
@@ -422,6 +425,41 @@
             }
         }
 
+        // 로그 영역 오른쪽 아래 손잡이로 크기를 직접 조절한다.
+        function enableLogResize() {
+            const output = getInput("server-log-output");
+            const handle = getInput("server-log-resize");
+            const container = output.parentElement;
+
+            handle.addEventListener("pointerdown", (event) => {
+                if (event.button !== 0) return;
+                event.preventDefault();
+
+                const startX = event.clientX;
+                const startY = event.clientY;
+                const startWidth = container.offsetWidth;
+                const startHeight = container.offsetHeight;
+                handle.setPointerCapture(event.pointerId);
+
+                function onMove(moveEvent) {
+                    const maxWidth = container.parentElement.clientWidth;
+                    const minWidth = Math.min(260, maxWidth);
+                    container.style.width = Math.max(minWidth, Math.min(maxWidth, startWidth + moveEvent.clientX - startX)) + "px";
+                    container.style.height = Math.max(160, startHeight + moveEvent.clientY - startY) + "px";
+                }
+
+                function onEnd() {
+                    handle.removeEventListener("pointermove", onMove);
+                    handle.removeEventListener("pointerup", onEnd);
+                    handle.removeEventListener("pointercancel", onEnd);
+                }
+
+                handle.addEventListener("pointermove", onMove);
+                handle.addEventListener("pointerup", onEnd);
+                handle.addEventListener("pointercancel", onEnd);
+            });
+        }
+
         // 10. 서버 로그 실시간 수신 (Server-Sent Events)
         function connectServerLogs() {
             const output = getInput("server-log-output");
@@ -490,6 +528,7 @@
         loadConfig();
         loadApiKeyStatus();
         connectServerLogs();
+        enableLogResize();
     </script>
 </body>
 </html>
