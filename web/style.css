@@ -206,6 +206,57 @@ summary:focus-visible {
     outline-offset: 3px;
 }
 
+/* 실시간 서버 로그 */
+.server-log-panel {
+    max-width: 1200px;
+    margin: 20px auto 0;
+}
+
+.server-log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.server-log-header h2 {
+    margin: 0;
+}
+
+.log-connection-status {
+    color: var(--color-success);
+    font-size: 13px;
+}
+
+.log-connection-status.disconnected {
+    color: var(--color-error);
+}
+
+.server-log-output {
+    height: 280px;
+    overflow: auto;
+    padding: 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font: 12px/1.65 Consolas, "D2Coding", monospace;
+    white-space: pre;
+}
+
+.server-log-output > div {
+    width: max-content;
+    min-width: 100%;
+}
+
+.server-log-hint {
+    margin: 10px 0 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
 /* ------------------------------------------------------------
    캐시 이미지 갤러리: 화면 너비에 따라 열 수가 자동으로 변한다.
    ------------------------------------------------------------ */
