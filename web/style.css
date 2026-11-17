@@ -324,6 +324,15 @@ summary:focus-visible {
     margin: 20px auto 0;
 }
 
+.cache-image-details {
+    padding-top: 18px;
+    border-top: 1px solid var(--border-color);
+}
+
+.cache-settings-fields {
+    margin-bottom: 20px;
+}
+
 .cache-gallery-panel summary {
     cursor: pointer;
     color: var(--accent-primary);
