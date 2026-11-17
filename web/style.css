@@ -372,6 +372,21 @@ button:disabled {
     border-radius: 8px;
 }
 
+.cache-image-link {
+    display: block;
+    border-radius: 6px;
+    cursor: zoom-in;
+}
+
+.cache-image-link:focus-visible {
+    outline: 2px solid var(--accent-secondary);
+    outline-offset: 3px;
+}
+
+.cache-image-link:hover img {
+    opacity: 0.88;
+}
+
 .cache-gallery img {
     display: block;
     width: 100%;
