@@ -59,18 +59,18 @@
             </div>
         </section>
 
-        <!-- 캐시 용량은 서버 설정과 일치하도록 바이트 단위로 입력 -->
-        <section class="settings-card aligned-fields">
-            <h2>캐시 설정</h2>
-            <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
-            <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
-        </section>
-
-        <!-- 긴 프롬프트를 편하게 편집하도록 전체 너비를 차지함 -->
-        <section class="settings-card full-width">
+        <!-- 프롬프트 설정: 이미지 생성 설정 오른쪽에 배치 -->
+        <section class="settings-card">
             <h2>프롬프트 설정</h2>
             <div><label for="base_prompt">기본 프롬프트:</label><br><textarea id="base_prompt" rows="8" cols="80"></textarea></div>
             <div><label for="negative_prompt">네거티브 프롬프트:</label><br><textarea id="negative_prompt" rows="8" cols="80"></textarea></div>
+        </section>
+
+        <!-- 캐시 설정: 기존 프롬프트 설정의 전체 너비 자리로 이동 -->
+        <section class="settings-card full-width aligned-fields">
+            <h2>캐시 설정</h2>
+            <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
+            <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
         </section>
     </main>
 
@@ -81,7 +81,7 @@
             <span id="log-connection-status" class="log-connection-status" role="status">연결 중...</span>
         </div>
         <div id="server-log-output" class="server-log-output" role="log" aria-label="Naify 서버 로그"></div>
-        <p class="server-log-hint">최근 300줄까지 표시됩니다. 위로 스크롤하면 자동 스크롤이 일시 중지됩니다.</p>
+        <p class="server-log-hint">최근 300줄을 표시합니다. 박스 오른쪽 아래 모서리를 드래그해 크기를 조절할 수 있우.</p>
     </section>
 
     <!-- 캐시 갤러리는 필요할 때만 펼치며, 이미지들은 최신순으로 표시한다. -->
