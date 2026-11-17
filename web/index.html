@@ -144,6 +144,14 @@
             return element;
         }
 
+        // 마지막으로 변경한 해상도 값을 보존하고 반대쪽을 보정한다.
+        let lastEditedDimension = "height";
+        for (const dimension of ["width", "height"]) {
+            getInput(dimension).addEventListener("input", () => {
+                lastEditedDimension = dimension;
+            });
+        }
+
         // 작업 결과 메시지는 몇 초 뒤 자동으로 숨긴다.
         const statusTimers = new WeakMap();
 
@@ -233,7 +241,10 @@
             try {
                 const response = await fetch("/config", {
                     method: "PUT",
-                    headers: { "Content-Type": "application/json" },
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Naify-Resolution-Priority": lastEditedDimension
+                    },
                     body: JSON.stringify(config)
                 });
 
@@ -264,10 +275,14 @@
                 }
                 const data = await response.json();
 
-                if (data.configured) {
-                    statusElement.textContent = "API 키가 등록되어 있습니다.";
-                } else {
+                if (!data.configured) {
                     statusElement.textContent = "API 키가 등록되지 않았습니다.";
+                } else if (data.validation === "valid") {
+                    statusElement.textContent = "API 키 인증이 확인되었습니다.";
+                } else if (data.validation === "invalid") {
+                    statusElement.textContent = "API 키가 유효하지 않습니다. 새 키를 등록하세요.";
+                } else {
+                    statusElement.textContent = "API 키가 등록되어 있지만 인증을 확인하지 못했습니다.";
                 }
             } catch (error) {
                 statusElement.textContent = "API 키 등록 상태를 확인하지 못했습니다.";
@@ -301,7 +316,12 @@
                 });
 
                 if (!response.ok) {
-                    showTemporaryStatus(statusElement, `API 키 변경 실패 (HTTP ${response.status})`);
+                    const message = response.status === 401
+                        ? "잘못된 API 키입니다. 기존 키는 유지됩니다."
+                        : response.status === 503
+                            ? "NovelAI 인증 서버에 연결할 수 없습니다. 기존 키는 유지됩니다."
+                            : `API 키 변경 실패 (HTTP ${response.status})`;
+                    showTemporaryStatus(statusElement, message);
                     return;
                 }
 

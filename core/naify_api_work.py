@@ -9,6 +9,26 @@ from core.naify_config import NaifyConfig, NaifySecrets
 NAI_API_URL: Final[str] = "https://image.novelai.net/ai/generate-image"
 
 
+def validate_api_key(api_key: str) -> str:
+    """인증 확인: valid / invalid / unavailable / missing."""
+    if not api_key.strip():
+        return "missing"
+    try:
+        response = httpx.get(
+            "https://image.novelai.net/user/subscription",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=10.0
+        )
+    except httpx.RequestError:
+        return "unavailable"
+
+    if response.status_code == 200:
+        return "valid"
+    if response.status_code in (401, 403):
+        return "invalid"
+    return "unavailable"
+
+
 def get_anlas_balance(naify_secrets: NaifySecrets) -> int | None:
     """
     NovelAI API에서 현재 남은 Anlas 잔액을 조회한다.

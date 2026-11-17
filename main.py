@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.responses import StreamingResponse
 from fastapi import Request
 
-from core import naify_image_fetcher, naify_cache
+from core import naify_image_fetcher, naify_cache, naify_api_work
 from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from core.naify_utility import open_manager, shutdown_server, print_log
 from core.naify_paths import ensure_data_dirs, WEB_DIR
@@ -21,6 +21,10 @@ from core.naify_utility import wait_for_logs
 
 @asynccontextmanager
 async def lifespan(app: fastapi.FastAPI):
+    app.state.api_key_status = await asyncio.to_thread(
+        naify_api_work.validate_api_key, naify_secrets.nai_api_key
+    )
+    print_log(content=f"NovelAI API key status: {app.state.api_key_status}")
 
     worker_thread = threading.Thread(
         target=naify_image_fetcher.generation_request_queue_processor,
@@ -108,9 +112,11 @@ def get_config() -> NaifyConfig:
 
 
 @app.put("/config")
-def update_config(config: NaifyConfig) -> None:
+def update_config(config: NaifyConfig, request: Request) -> None:
     global naify_config
 
+    preferred = request.headers.get("x-naify-resolution-priority", "height")
+    config.generation.fit_resolution(preferred)
     save_config(config)
     naify_config = config
 
@@ -127,7 +133,8 @@ def get_secrets_status() -> dict:
     is_configured = bool(naify_secrets.nai_api_key)
     
     secrets_status = {
-        "configured": is_configured
+        "configured": is_configured,
+        "validation": getattr(app.state, "api_key_status", "unchecked")
     }
 
     return secrets_status
@@ -146,8 +153,15 @@ def update_secrets(secrets: NaifySecrets, request: Request) -> None:
 
     global naify_secrets
 
+    validation = naify_api_work.validate_api_key(secrets.nai_api_key)
+    if validation == "invalid":
+        raise fastapi.HTTPException(status_code=401, detail="Invalid NovelAI API key")
+    if validation != "valid":
+        raise fastapi.HTTPException(status_code=503, detail="Could not verify NovelAI API key")
+
     save_secrets(secrets)
     naify_secrets = secrets
+    app.state.api_key_status = "valid"
 
     print_log(content="secrets updated")
 

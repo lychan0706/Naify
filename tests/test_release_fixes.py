@@ -14,6 +14,57 @@ import main
 
 
 class ReleaseFixTests(unittest.TestCase):
+    def test_resolution_keeps_last_edited_height(self):
+        generation = naify_config.GenerationConfig(width=3008, height=1000)
+        generation.fit_resolution("height")
+        self.assertEqual((generation.width, generation.height), (2496, 1024))
+
+    def test_resolution_keeps_last_edited_width(self):
+        generation = naify_config.GenerationConfig(width=3008, height=1536)
+        generation.fit_resolution("width")
+        self.assertEqual((generation.width, generation.height), (3008, 512))
+
+    def test_resolution_normalizes_to_multiples_of_64(self):
+        generation = naify_config.GenerationConfig(width=1000, height=999999)
+        generation.fit_resolution("width")
+        self.assertEqual((generation.width, generation.height), (1024, 2496))
+
+    def test_api_key_validation_distinguishes_auth_and_outage(self):
+        with patch.object(naify_api_work.httpx, "get", return_value=Mock(status_code=200)):
+            self.assertEqual(naify_api_work.validate_api_key("key"), "valid")
+        with patch.object(naify_api_work.httpx, "get", return_value=Mock(status_code=401)):
+            self.assertEqual(naify_api_work.validate_api_key("key"), "invalid")
+        with patch.object(naify_api_work.httpx, "get", return_value=Mock(status_code=500)):
+            self.assertEqual(naify_api_work.validate_api_key("key"), "unavailable")
+        self.assertEqual(naify_api_work.validate_api_key(""), "missing")
+
+    def test_invalid_api_key_does_not_replace_existing_key(self):
+        request = SimpleNamespace(headers={"origin": "http://127.0.0.1:8000"})
+        original = main.naify_secrets
+        try:
+            main.naify_secrets = naify_config.NaifySecrets(nai_api_key="previous")
+            with patch.object(main.naify_api_work, "validate_api_key", return_value="invalid"), \
+                    patch.object(main, "save_secrets") as save:
+                with self.assertRaises(HTTPException) as raised:
+                    main.update_secrets(naify_config.NaifySecrets(nai_api_key="wrong"), request)
+            self.assertEqual(raised.exception.status_code, 401)
+            self.assertEqual(main.naify_secrets.nai_api_key, "previous")
+            save.assert_not_called()
+        finally:
+            main.naify_secrets = original
+
+    def test_config_endpoint_prioritizes_last_edited_dimension(self):
+        request = SimpleNamespace(headers={"x-naify-resolution-priority": "height"})
+        original = main.naify_config
+        try:
+            config = naify_config.NaifyConfig(generation={"width": 3008, "height": 1000})
+            with patch.object(main, "save_config") as save:
+                main.update_config(config, request)
+            self.assertEqual((config.generation.width, config.generation.height), (2496, 1024))
+            save.assert_called_once_with(config)
+        finally:
+            main.naify_config = original
+
     def test_old_config_with_seed_still_loads(self):
         config = naify_config.NaifyConfig.model_validate({"generation": {"seed": 12345}})
         self.assertNotIn("seed", config.generation.model_dump())
@@ -68,6 +119,18 @@ class ReleaseFixTests(unittest.TestCase):
 
 
 class ShutdownStreamTests(unittest.IsolatedAsyncioTestCase):
+    async def test_startup_checks_stored_api_key_once(self):
+        original = main.naify_secrets
+        try:
+            main.naify_secrets = naify_config.NaifySecrets(nai_api_key="stored-key")
+            with patch.object(main.naify_api_work, "validate_api_key", return_value="valid") as validate, \
+                    patch.object(main.threading, "Timer"):
+                async with main.lifespan(main.app):
+                    self.assertEqual(main.app.state.api_key_status, "valid")
+            validate.assert_called_once_with("stored-key")
+        finally:
+            main.naify_secrets = original
+
     async def test_log_stream_closes_on_shutdown(self):
         request = SimpleNamespace(
             app=main.app,

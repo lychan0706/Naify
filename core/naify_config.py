@@ -41,9 +41,18 @@ class GenerationConfig(BaseModel):
     @field_validator("width", "height")
     @classmethod
     def normalize_resolution(cls, value: int) -> int:
-        normalized_value: int = max(512, round(value / 64) * 64)
+        normalized_value: int = min(3008, max(512, ((value + 32) // 64) * 64))
         
         return normalized_value
+
+    def fit_resolution(self, preferred: str = "height") -> None:
+        """마지막으로 변경한 변을 유지하고 다른 변을 최대 합계에 맞춘다."""
+        if self.width + self.height <= 3520:
+            return
+        if preferred == "width":
+            self.height = 3520 - self.width
+        else:
+            self.width = 3520 - self.height
 
     @field_validator("steps")
     @classmethod
@@ -128,6 +137,7 @@ def load_config() -> NaifyConfig:
         config_json: str = json_file.read()
 
     naify_config = NaifyConfig.model_validate_json(config_json)
+    naify_config.generation.fit_resolution()
 
     return naify_config
 
