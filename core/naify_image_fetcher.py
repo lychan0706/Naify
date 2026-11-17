@@ -8,6 +8,7 @@ from core import naify_cache
 from core.naify_config import NaifyConfig, NaifySecrets
 import threading
 import os
+import time
 
 
 generation_request_queue = Queue()
@@ -50,9 +51,16 @@ def generation_request_queue_processor() -> None:
             else:
                 print_log(image_id=image_id, content="Generating...")
 
+                # 시작 시각 기록
+                process_initiation_time = time.perf_counter()
+
                 image_bytes = generate_image(image_id=image_id, naify_secrets=secrets, naify_config=config, prompt=prompt)
 
-                print_log(image_id=image_id, content="Generated")
+                # 소요 시간 계산
+                process_termination_time = time.perf_counter()
+                total_elapsed = process_termination_time - process_initiation_time
+
+                print_log(image_id=image_id, content=f"Generated: {round(total_elapsed, 2)}sec")
 
                 naify_cache.save_image_to_cache(image_id, image_bytes)
                 naify_cache.trim_cache(config.cache)

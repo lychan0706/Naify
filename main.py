@@ -182,9 +182,6 @@ def get_image(prompt: str) -> fastapi.Response:
         # 이미지 ID 생성
         image_id: str = naify_image_fetcher.make_image_id(prompt)
 
-        # 시작 시각 기록
-        process_initiation_time = time.perf_counter()
-
         print_log(image_id, "Requested")
 
         # 이미지 제공
@@ -199,12 +196,6 @@ def get_image(prompt: str) -> fastapi.Response:
             content=image_bytes,
             media_type="image/webp"
         )
-
-        # 소요 시간 계산
-        process_termination_time = time.perf_counter()
-        total_elapsed = process_termination_time - process_initiation_time
-
-        print_log(image_id, f"{round(total_elapsed, 2)}sec")
 
         return requested_webp
 
@@ -265,7 +256,8 @@ if __name__ == "__main__":
         host="127.0.0.1",
         port=8000,
         reload=False,
-        access_log=False
+        access_log=False,
+        use_colors=False
     )
 
     uvicorn_server = uvicorn.Server(uvicorn_config)

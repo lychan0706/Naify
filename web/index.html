@@ -108,8 +108,8 @@
     <!-- 브라우저 정책상 탭을 닫을 수 없을 때 보여줄 종료 완료 화면 -->
     <div id="shutdown-screen" class="shutdown-screen" hidden>
         <div class="shutdown-message">
-            <h2>Naify 종료 요청을 접수했우.</h2>
-            <p>이미지 생성 작업을 마친 뒤 서버가 종료되우. 이 탭을 닫아도 되우.</p>
+            <h2>Naify 종료 요청 접수.</h2>
+            <p>이미지 생성 작업을 마친 뒤 서버가 종료됩니다. 이 탭을 닫아도 좋습니다.</p>
         </div>
     </div>
 
@@ -155,7 +155,7 @@
                 getInput("max_cache_size").value = config.cache.max_cache_size / (1024 * 1024);
                 getInput("max_images").value = config.cache.max_images;
             } catch (error) {
-                statusElement.textContent = "설정 정보를 불러오지 못했우.";
+                statusElement.textContent = "설정 정보를 불러오지 못했습니다.";
                 console.error("[Naify] 설정 조회 실패:", error);
             }
         }
@@ -213,7 +213,7 @@
                 statusElement.textContent = "설정 저장 완료!";
                 await loadConfig();
             } catch (error) {
-                statusElement.textContent = "서버에 연결할 수 없우.";
+                statusElement.textContent = "서버에 연결할 수 없습니다.";
                 console.error("[Naify] 설정 저장 실패:", error);
             }
         }
@@ -233,12 +233,12 @@
                 const data = await response.json();
 
                 if (data.configured) {
-                    statusElement.textContent = "API 키가 등록되어 있우.";
+                    statusElement.textContent = "API 키가 등록되어 있습니다.";
                 } else {
-                    statusElement.textContent = "API 키가 등록되지 않았우.";
+                    statusElement.textContent = "API 키가 등록되지 않았습니다.";
                 }
             } catch (error) {
-                statusElement.textContent = "API 키 등록 상태를 확인하지 못했우.";
+                statusElement.textContent = "API 키 등록 상태를 확인하지 못했습니다.";
                 console.error("[Naify] API 키 상태 조회 실패:", error);
             }
         }
@@ -254,7 +254,7 @@
 
             // 실수로 빈 문자열을 보내 기존 키를 지우지 않도록 막는다.
             if (apiKey.length === 0) {
-                statusElement.textContent = "API 키를 입력하우.";
+                statusElement.textContent = "API 키를 입력하습니다.";
                 return;
             }
 
@@ -273,11 +273,11 @@
                     return;
                 }
 
-                statusElement.textContent = "API 키가 변경되었우!";
+                statusElement.textContent = "API 키가 변경되었습니다!";
                 apiKeyInput.value = ""; // 성공 후 화면에 입력한 키를 남기지 않음
                 await loadApiKeyStatus();
             } catch (error) {
-                statusElement.textContent = "서버에 연결할 수 없우.";
+                statusElement.textContent = "서버에 연결할 수 없습니다.";
                 // 민감한 API 키 값은 콘솔에 기록하지 않는다.
                 console.error("[Naify] API 키 변경 실패:", error);
             }
@@ -305,7 +305,7 @@
                 gallery.replaceChildren();
                 if (data.images.length === 0) {
                     const empty = document.createElement("p");
-                    empty.textContent = "저장된 캐시 이미지가 없우.";
+                    empty.textContent = "저장된 캐시 이미지가 없습니다.";
                     gallery.appendChild(empty);
                     return;
                 }
@@ -326,7 +326,7 @@
                     gallery.appendChild(item);
                 }
             } catch (error) {
-                statusElement.textContent = "캐시 목록을 불러오지 못했우.";
+                statusElement.textContent = "캐시 목록을 불러오지 못했습니다.";
                 console.error("[Naify] 캐시 조회 실패:", error);
             }
         }
@@ -337,7 +337,7 @@
         //    설정 및 API 키 파일은 삭제하지 않는다.
         // ------------------------------------------------------------
         async function clearAllCache() {
-            const confirmed = confirm("캐시 이미지들을 모두 삭제하겠우?\n삭제된 이미지는 다음 요청 시 다시 생성되우.");
+            const confirmed = confirm("캐시 이미지들을 모두 삭제하시겠습니까?\n삭제된 이미지는 다음 요청 시 다시 생성됩니다.");
             if (!confirmed) {
                 return;
             }
@@ -356,10 +356,10 @@
                 }
 
                 const result = await response.json();
-                statusElement.textContent = `캐시 이미지 ${result.deleted_count}개를 삭제했우.`;
+                statusElement.textContent = `캐시 이미지 ${result.deleted_count}개를 삭제했습니다.`;
                 await loadCacheGallery();
             } catch (error) {
-                statusElement.textContent = "캐시 삭제에 실패했우.";
+                statusElement.textContent = "캐시 삭제에 실패했습니다.";
                 console.error("[Naify] 캐시 삭제 실패:", error);
             } finally {
                 button.disabled = false;
@@ -373,7 +373,7 @@
         // ------------------------------------------------------------
         async function shutdownNaify() {
             const confirmed = confirm(
-                "Naify를 종료하겠우?\n진행 중인 이미지 생성이 끝나면 서버가 종료되우."
+                "Naify를 종료하시겠습니까?\n진행 중인 이미지 생성이 끝나면 서버가 종료됩니다."
             );
 
             if (!confirmed) {
@@ -402,7 +402,7 @@
                 // 그 경우 위 안내 화면이 그대로 남아 사용자가 직접 닫을 수 있다.
                 setTimeout(() => window.close(), 400);
             } catch (error) {
-                statusElement.textContent = "종료 요청에 실패했우.";
+                statusElement.textContent = "종료 요청에 실패했습니다.";
                 button.disabled = false;
                 console.error("[Naify] 종료 요청 실패:", error);
             }
