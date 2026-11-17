@@ -5,16 +5,52 @@ import uvicorn
 import webbrowser
 from core import naify_image_fetcher
 import fastapi
+from collections import deque
+import threading
+import sys
+
+
+log_history = deque(maxlen=300)
+log_condition = threading.Condition()
+last_log_id = 0
+
 
 def print_log(image_id:str = "SERVER", content: str = "") -> None:
-    """
-    현재 시각을 HH:MM:SS 형식으로 표시하고 로그를 출력한다.
-    """
-    
+    log: str
     now = datetime.now()
     timestamp = now.strftime("%H:%M:%S.%f")[:-3]
 
-    print(f"[{timestamp}] {image_id[:6]} : {content}")
+    global last_log_id
+
+    log = f"[{timestamp}] {image_id[:6]} : {content}"
+
+    with log_condition:
+        last_log_id += 1
+
+        log_history.append((last_log_id, log))
+
+        log_condition.notify_all()
+
+    if sys.stdout is not None:
+        print(log)
+
+
+def wait_for_logs(last_seen_id: int) -> list[tuple[int, str]]:
+    with log_condition:
+
+        log_condition.wait_for(
+            lambda: last_seen_id > last_log_id,
+            timeout=1.0
+        )
+
+        new_logs = [
+            (log_id, log)
+            for log_id, log in log_history
+            if log_id > last_seen_id
+        ]
+
+        return new_logs
+
 
 
 def extract_image_from_zip(zip_data: bytes) -> bytes:

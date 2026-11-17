@@ -1,18 +1,22 @@
 # import
 import fastapi
-import time
 import threading
 import re
+import asyncio
+import json
 from contextlib import asynccontextmanager
 from fastapi import Request
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.responses import StreamingResponse
+from fastapi import Request
 
 from core import naify_image_fetcher, naify_cache
 from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
 from core.naify_utility import open_manager, shutdown_server, print_log
 from core.naify_paths import ensure_data_dirs, WEB_DIR
+from core.naify_utility import wait_for_logs
 
 
 @asynccontextmanager
@@ -69,6 +73,24 @@ def home() -> FileResponse:
 
     return response
 
+
+@app.get("/logs/stream")
+async def stream_logs(request: Request):
+    async def generate_events():
+        last_seen_id = 0
+
+        while not await request.is_disconnected():
+            new_logs = await asyncio.to_thread(wait_for_logs, last_seen_id)
+
+            for log_id, log in new_logs:
+                last_seen_id = log_id
+                yield f"id: {log_id}\ndata: {json.dumps(log, ensure_ascii=False)}\n\n"
+
+    log_stream = StreamingResponse(
+        generate_events(),
+        media_type="text/event-stream"
+    )
+    return log_stream
 
 @app.get("/config")
 def get_config() -> NaifyConfig:
