@@ -204,6 +204,23 @@ def delete_all_cache(request: Request) -> dict:
     return {"deleted_count": deleted_count}
 
 
+@app.post("/queue/cancel_pending")
+def cancel_pending_generation_requests(request: Request) -> dict:
+    # 웹 관리자에서 발생한 명시적인 요청만 허용한다.
+    origin = request.headers.get("origin")
+    action = request.headers.get("x-naify-action")
+    if origin != "http://127.0.0.1:8000" or action != "cancel-pending":
+        raise fastapi.HTTPException(status_code=403, detail="Forbidden")
+
+    if app.state.shutting_down:
+        raise fastapi.HTTPException(status_code=409, detail="Server is shutting down")
+
+    cancelled_count = naify_image_fetcher.cancel_pending_requests()
+    response = {"cancelled_count": cancelled_count}
+
+    return response
+
+
 @app.get("/get_image")
 def get_image(prompt: str) -> fastapi.Response:
 
