@@ -74,6 +74,16 @@
         </section>
     </main>
 
+    <!-- SSE를 통해 서버 로그를 실시간 표시한다. -->
+    <section class="settings-card server-log-panel" aria-labelledby="server-log-title">
+        <div class="server-log-header">
+            <h2 id="server-log-title">실시간 서버 로그</h2>
+            <span id="log-connection-status" class="log-connection-status" role="status">연결 중...</span>
+        </div>
+        <div id="server-log-output" class="server-log-output" role="log" aria-label="Naify 서버 로그"></div>
+        <p class="server-log-hint">최근 300줄까지 표시됩니다. 위로 스크롤하면 자동 스크롤이 일시 중지됩니다.</p>
+    </section>
+
     <!-- 캐시 갤러리는 필요할 때만 펼치며, 이미지들은 최신순으로 표시한다. -->
     <details class="settings-card cache-gallery-panel" id="cache-gallery-panel">
         <summary>캐시 이미지 확인 <span class="summary-hint">클릭하여 펼치기</span></summary>
@@ -412,8 +422,60 @@
             }
         }
 
+        // 10. 서버 로그 실시간 수신 (Server-Sent Events)
+        function connectServerLogs() {
+            const output = getInput("server-log-output");
+            const status = getInput("log-connection-status");
+            const stream = new EventSource("/logs/stream");
+            let lastRenderedId = 0;
+
+            stream.onopen = () => {
+                status.textContent = "● 연결됨";
+                status.classList.remove("disconnected");
+            };
+
+            stream.onmessage = (event) => {
+                const id = Number(event.lastEventId);
+                // SSE 자동 재연결 시 이미 화면에 표시한 로그는 무시한다.
+                if (Number.isSafeInteger(id) && id > 0 && id <= lastRenderedId) {
+                    return;
+                }
+
+                let message;
+                try {
+                    message = JSON.parse(event.data);
+                } catch (error) {
+                    console.error("[Naify] 잘못된 로그 데이터:", error);
+                    return;
+                }
+
+                const atBottom = output.scrollHeight - output.scrollTop - output.clientHeight < 48;
+                const line = document.createElement("div");
+                line.textContent = String(message);
+                output.appendChild(line);
+
+                while (output.childElementCount > 300) {
+                    output.firstElementChild.remove();
+                }
+
+                if (Number.isSafeInteger(id) && id > 0) {
+                    lastRenderedId = id;
+                }
+                if (atBottom) {
+                    output.scrollTop = output.scrollHeight;
+                }
+            };
+
+            stream.onerror = () => {
+                status.textContent = "● 연결 끊김 · 재연결 중...";
+                status.classList.add("disconnected");
+            };
+
+            window.addEventListener("pagehide", () => stream.close(), { once: true });
+        }
+
         // ------------------------------------------------------------
-        // 10. 초기화: 버튼을 연결하고 저장된 설정/키 상태를 불러오기
+        // 11. 초기화: 버튼을 연결하고 저장된 설정/키 상태를 불러오기
         // ------------------------------------------------------------
         getInput("save-button").addEventListener("click", saveConfig);
         getInput("save-api-key").addEventListener("click", saveApiKey);
@@ -427,6 +489,7 @@
         });
         loadConfig();
         loadApiKeyStatus();
+        connectServerLogs();
     </script>
 </body>
 </html>
