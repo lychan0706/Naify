@@ -53,6 +53,8 @@ def generate_image(image_id: str, naify_secrets: NaifySecrets, naify_config: Nai
                     "n_samples": 1,
                     "negative_prompt": naify_config.prompt.negative_prompt,
                     "steps": naify_config.generation.steps,
+                    # -1은 자동 시드 선택을 뜻하므로 API 기본 동작에 맡긴다.
+                    **({"seed": naify_config.generation.seed} if naify_config.generation.seed >= 0 else {}),
                     "scale": naify_config.generation.prompt_guidance,
                     "sampler": naify_config.generation.sampler,
                     "noise_schedule": naify_config.generation.noise_schedule,
@@ -101,11 +103,19 @@ def generate_image(image_id: str, naify_secrets: NaifySecrets, naify_config: Nai
         )
 
     if generation_response.status_code != 200:
-        print_log(image_id, f"error - {generation_response.status_code} - {generation_response.json().get("message")}")
+        try:
+            error_data = generation_response.json()
+            error_message = (
+                error_data.get("message") or generation_response.text
+                if isinstance(error_data, dict) else generation_response.text
+            )
+        except ValueError:
+            error_message = generation_response.text
+        print_log(image_id, f"error - {generation_response.status_code} - {str(error_message)[:500]}")
 
         raise fastapi.HTTPException(
             status_code=502,
-            detail="NovelAI Imamge Generation Failed"
+            detail="NovelAI Image Generation Failed"
         )
 
     image_bytes = extract_image_from_zip(zip_data=generation_response.content)

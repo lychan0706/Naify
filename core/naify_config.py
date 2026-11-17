@@ -2,6 +2,9 @@
 from pydantic import BaseModel, field_validator
 from pydantic import ConfigDict
 from pydantic import Field
+import os
+import tempfile
+from pathlib import Path
 from core.naify_paths import CONFIG_PATH, SECRETS_PATH
 
 class NaifySecrets(BaseModel):
@@ -92,10 +95,26 @@ class NaifyConfig(BaseModel):
     cache: CacheConfig = Field(default_factory=CacheConfig)
 
 
+def save_json_atomically(path: Path, content: str) -> None:
+    """기존 파일을 유지한 채 새 내용을 기록한 후 한 번에 교체한다."""
+    temporary_path = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f".{path.name}.", suffix=".tmp", delete=False
+        ) as temporary_file:
+            temporary_path = Path(temporary_file.name)
+            temporary_file.write(content)
+            temporary_file.flush()
+            os.fsync(temporary_file.fileno())
+        os.replace(temporary_path, path)
+    finally:
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+
+
 def save_config(naify_config: NaifyConfig) -> None:
-    config_json: str = naify_config.model_dump_json(indent=4)
-    with open(CONFIG_PATH, "w", encoding="utf-8") as json_file:
-        json_file.write(config_json)
+    save_json_atomically(CONFIG_PATH, naify_config.model_dump_json(indent=4))
 
 
 def load_config() -> NaifyConfig:
@@ -115,9 +134,7 @@ def load_config() -> NaifyConfig:
 
 
 def save_secrets(naify_secrets: NaifySecrets) -> None:
-    secrets_json: str = naify_secrets.model_dump_json(indent=4)
-    with open (SECRETS_PATH, "w", encoding="utf-8") as json_file:
-        json_file.write(secrets_json)
+    save_json_atomically(SECRETS_PATH, naify_secrets.model_dump_json(indent=4))
 
 
 def load_secrets() -> NaifySecrets:

@@ -3,7 +3,6 @@ from datetime import datetime
 import zipfile
 import uvicorn
 import webbrowser
-from core import naify_image_fetcher
 import fastapi
 from collections import deque
 import threading
@@ -39,7 +38,7 @@ def wait_for_logs(last_seen_id: int) -> list[tuple[int, str]]:
     with log_condition:
 
         log_condition.wait_for(
-            lambda: last_seen_id > last_log_id,
+            lambda: last_log_id > last_seen_id,
             timeout=1.0
         )
 
@@ -75,6 +74,7 @@ def open_manager() -> None:
 
 
 def shutdown_server(app: fastapi.FastAPI, server: uvicorn.Server) -> None:
+    from core import naify_image_fetcher
 
     # 현재 처리 중인 이미지 요청이 모두 끝날 때까지 대기
     with app.state.request_condition:
@@ -83,10 +83,19 @@ def shutdown_server(app: fastapi.FastAPI, server: uvicorn.Server) -> None:
             lambda: app.state.active_requests == 0
         )
 
-    # 큐에 등록된 작업도 모두 처리되었는지 확인
-    naify_image_fetcher.generation_request_queue.join()
+    # Worker가 비정상 종료된 경우에는 큐가 영원히 비워지지 않을 수 있다.
+    queue = naify_image_fetcher.generation_request_queue
+    worker = app.state.generation_worker
+    with queue.all_tasks_done:
+        while queue.unfinished_tasks and worker.is_alive():
+            queue.all_tasks_done.wait(timeout=1.0)
 
-    print_log(content="All generation tasks completed")
+        worker_failed = bool(queue.unfinished_tasks)
+        if worker_failed:
+            print_log(content="Generation worker stopped before queue was drained")
+
+    if not worker_failed:
+        print_log(content="All generation tasks completed")
 
     server.should_exit = True
 

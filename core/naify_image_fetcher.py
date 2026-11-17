@@ -1,4 +1,4 @@
-from concurrent.futures import Future
+from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from queue import Queue
 from hashlib import sha256
 from core.naify_cache import get_image_from_cache
@@ -6,6 +6,7 @@ from core.naify_api_work import generate_image
 from core.naify_utility import print_log
 from core import naify_cache
 from core.naify_config import NaifyConfig, NaifySecrets
+from fastapi import HTTPException
 import threading
 import os
 import time
@@ -14,7 +15,7 @@ import time
 generation_request_queue = Queue()
 
 
-def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, prompt: str) -> bytes:
+def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, prompt: str, worker_thread: threading.Thread) -> bytes:
     # 캐시 확인과 파일 읽기는 하나의 잠금 안에서 처리한다.
     # 전체 삭제가 동시에 실행되어도 파일이 중간에 사라지지 않는다.
     image_bytes = get_image_from_cache(image_id)
@@ -22,10 +23,19 @@ def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, promp
     if image_bytes is not None:
         print_log(image_id, "Getting image from cache")
     else:
+        if not worker_thread.is_alive():
+            raise HTTPException(status_code=503, detail="Image generation worker stopped")
         print_log(image_id, "Queued for generation")
         future = Future()
         generation_request_queue.put((image_id, secrets, config, prompt, future))
-        image_bytes = future.result()
+        # 큐가 길어도 정상적인 생성 작업은 기다린다. 단, Worker가 죽으면 대기를 끝낸다.
+        while True:
+            try:
+                image_bytes = future.result(timeout=1.0)
+                break
+            except FutureTimeoutError:
+                if not worker_thread.is_alive():
+                    raise HTTPException(status_code=503, detail="Image generation worker stopped")
 
     return image_bytes
 

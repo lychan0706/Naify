@@ -27,6 +27,7 @@ async def lifespan(app: fastapi.FastAPI):
         daemon=True
     )
 
+    app.state.generation_worker = worker_thread
     worker_thread.start()
 
     threading.Timer(1.0, open_manager).start()
@@ -105,10 +106,9 @@ def get_config() -> NaifyConfig:
 @app.put("/config")
 def update_config(config: NaifyConfig) -> None:
     global naify_config
-    
-    naify_config = config
 
-    save_config(naify_config)
+    save_config(config)
+    naify_config = config
 
     print_log(content="config updated")
 
@@ -142,8 +142,8 @@ def update_secrets(secrets: NaifySecrets, request: Request) -> None:
 
     global naify_secrets
 
+    save_secrets(secrets)
     naify_secrets = secrets
-    save_secrets(naify_secrets)
 
     print_log(content="secrets updated")
 
@@ -211,7 +211,8 @@ def get_image(prompt: str) -> fastapi.Response:
             image_id=image_id,
             secrets=naify_secrets,
             config=naify_config,
-            prompt=prompt
+            prompt=prompt,
+            worker_thread=app.state.generation_worker
         )
 
         requested_webp = fastapi.Response(
