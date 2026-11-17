@@ -80,8 +80,12 @@ async def stream_logs(request: Request):
     async def generate_events():
         last_seen_id = 0
 
-        while not await request.is_disconnected():
+        while not request.app.state.shutting_down and not await request.is_disconnected():
             new_logs = await asyncio.to_thread(wait_for_logs, last_seen_id)
+
+            # 종료 요청 중에는 SSE 스트림도 끝내야 Uvicorn이 연결을 기다리지 않는다.
+            if request.app.state.shutting_down:
+                break
 
             for log_id, log in new_logs:
                 last_seen_id = log_id
@@ -254,6 +258,9 @@ def request_shutdown(request: Request) -> dict:
             )
 
         app.state.shutting_down = True
+
+    # 대기 중인 로그 스트림도 깨어나 종료 상태를 확인하도록 한다.
+    print_log(content="Shutdown requested; closing log streams")
 
     shutdown_thread = threading.Thread(
         target=shutdown_server,

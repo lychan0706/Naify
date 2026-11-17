@@ -1,13 +1,16 @@
+import asyncio
 import tempfile
 import threading
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, Mock, patch
 
 from fastapi import HTTPException
 
 from core import naify_api_work, naify_config, naify_image_fetcher, naify_utility
+import main
 
 
 class ReleaseFixTests(unittest.TestCase):
@@ -68,6 +71,34 @@ class ReleaseFixTests(unittest.TestCase):
                     "prompt", stopped_worker
                 )
         self.assertEqual(raised.exception.status_code, 503)
+
+
+class ShutdownStreamTests(unittest.IsolatedAsyncioTestCase):
+    async def test_log_stream_closes_on_shutdown(self):
+        request = SimpleNamespace(
+            app=main.app,
+            is_disconnected=AsyncMock(return_value=False)
+        )
+        release_waiter = threading.Event()
+
+        def wait_for_logs_until_released(last_seen_id):
+            release_waiter.wait(timeout=2.0)
+            return [(1, "test log")]
+
+        main.app.state.shutting_down = False
+        try:
+            with patch.object(main, "wait_for_logs", side_effect=wait_for_logs_until_released):
+                response = await main.stream_logs(request)
+                next_event = asyncio.create_task(response.body_iterator.__anext__())
+                await asyncio.sleep(0.05)
+                main.app.state.shutting_down = True
+                release_waiter.set()
+
+                with self.assertRaises(StopAsyncIteration):
+                    await asyncio.wait_for(next_event, timeout=2.0)
+        finally:
+            release_waiter.set()
+            main.app.state.shutting_down = False
 
 
 if __name__ == "__main__":
