@@ -214,6 +214,25 @@ summary:focus-visible {
     margin: 0;
 }
 
+.server-log-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.server-log-actions button {
+    padding: 8px 12px;
+    font-size: 13px;
+}
+
+.queue-action-status {
+    min-height: 1.2em;
+    margin: 6px 0 0;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
 .log-connection-status {
     color: var(--color-success);
     font-size: 13px;
