@@ -14,6 +14,10 @@ import main
 
 
 class ReleaseFixTests(unittest.TestCase):
+    def test_old_config_with_seed_still_loads(self):
+        config = naify_config.NaifyConfig.model_validate({"generation": {"seed": 12345}})
+        self.assertNotIn("seed", config.generation.model_dump())
+
     def test_log_waiter_wakes_up_on_new_log(self):
         seen = naify_utility.last_log_id
         result = []
@@ -25,16 +29,6 @@ class ReleaseFixTests(unittest.TestCase):
         self.assertFalse(waiter.is_alive(), "log waiter should wake before its one-second timeout")
         self.assertTrue(result)
 
-    def test_generation_request_contains_seed(self):
-        response = Mock(status_code=200, content=b"zip-data")
-        config = naify_config.NaifyConfig()
-        config.generation.seed = 12345
-        with patch.object(naify_api_work.httpx, "post", return_value=response) as post, \
-                patch.object(naify_api_work, "extract_image_from_zip", return_value=b"webp"):
-            result = naify_api_work.generate_image("id", naify_config.NaifySecrets(), config, "1girl")
-        self.assertEqual(result, b"webp")
-        self.assertEqual(post.call_args.kwargs["json"]["parameters"]["seed"], 12345)
-
     def test_non_json_api_error_is_translated_to_502(self):
         response = Mock(status_code=503, text="Service Unavailable")
         response.json.side_effect = ValueError("not JSON")
@@ -43,7 +37,7 @@ class ReleaseFixTests(unittest.TestCase):
                 naify_api_work.generate_image("id", naify_config.NaifySecrets(), naify_config.NaifyConfig(), "prompt")
         self.assertEqual(raised.exception.status_code, 502)
 
-    def test_random_seed_is_not_sent_as_negative_one(self):
+    def test_generation_request_omits_seed(self):
         response = Mock(status_code=200, content=b"zip-data")
         with patch.object(naify_api_work.httpx, "post", return_value=response) as post, \
                 patch.object(naify_api_work, "extract_image_from_zip", return_value=b"webp"):

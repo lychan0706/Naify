@@ -34,7 +34,6 @@ class GenerationConfig(BaseModel):
     height: int = 832
     steps: int = 28
     prompt_guidance: float = 7
-    seed: int = -1
     sampler: str = "k_euler_ancestral"
     prompt_guidance_rescale: float = 0.4
     noise_schedule: str = "karras"

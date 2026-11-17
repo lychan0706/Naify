@@ -53,8 +53,6 @@ def generate_image(image_id: str, naify_secrets: NaifySecrets, naify_config: Nai
                     "n_samples": 1,
                     "negative_prompt": naify_config.prompt.negative_prompt,
                     "steps": naify_config.generation.steps,
-                    # -1은 자동 시드 선택을 뜻하므로 API 기본 동작에 맡긴다.
-                    **({"seed": naify_config.generation.seed} if naify_config.generation.seed >= 0 else {}),
                     "scale": naify_config.generation.prompt_guidance,
                     "sampler": naify_config.generation.sampler,
                     "noise_schedule": naify_config.generation.noise_schedule,
