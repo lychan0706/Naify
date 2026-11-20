@@ -1,8 +1,9 @@
 # 상수 및 설정 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from pydantic import ConfigDict
 from pydantic import Field
 import os
+import json
 import tempfile
 from pathlib import Path
 from core.naify_paths import CONFIG_PATH, SECRETS_PATH
@@ -103,6 +104,54 @@ class NaifyConfig(BaseModel):
     cache: CacheConfig = Field(default_factory=CacheConfig)
 
 
+class PresetConfig(BaseModel):
+    generation: GenerationConfig = Field(default_factory=GenerationConfig)
+    prompt: GenerationPrompt = Field(default_factory=GenerationPrompt)
+
+
+class NaifyConfigStore(BaseModel):
+    active_preset: str = "default"
+    presets: dict[str, PresetConfig] = Field(default_factory=lambda: {"default": PresetConfig()})
+    cache: CacheConfig = Field(default_factory=CacheConfig)
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_config(cls, value):
+        if isinstance(value, dict) and "presets" not in value:
+            return {
+                "active_preset": "default",
+                "presets": {"default": {
+                    "generation": value.get("generation", {}),
+                    "prompt": value.get("prompt", {})
+                }},
+                "cache": value.get("cache", {})
+            }
+        return value
+
+    @model_validator(mode="after")
+    def validate_active_preset(self):
+        if not self.presets or self.active_preset not in self.presets:
+            raise ValueError("Active preset must exist")
+        for preset in self.presets.values():
+            preset.generation.fit_resolution()
+        return self
+
+    def active_config(self) -> NaifyConfig:
+        preset = self.presets[self.active_preset]
+        return NaifyConfig(
+            generation=preset.generation.model_copy(deep=True),
+            prompt=preset.prompt.model_copy(deep=True),
+            cache=self.cache.model_copy(deep=True)
+        )
+
+    def update_active(self, config: NaifyConfig) -> None:
+        self.presets[self.active_preset] = PresetConfig(
+            generation=config.generation.model_copy(deep=True),
+            prompt=config.prompt.model_copy(deep=True)
+        )
+        self.cache = config.cache.model_copy(deep=True)
+
+
 def save_json_atomically(path: Path, content: str) -> None:
     """기존 파일을 유지한 채 새 내용을 기록한 후 한 번에 교체한다."""
     temporary_path = None
@@ -122,24 +171,31 @@ def save_json_atomically(path: Path, content: str) -> None:
 
 
 def save_config(naify_config: NaifyConfig) -> None:
-    save_json_atomically(CONFIG_PATH, naify_config.model_dump_json(indent=4))
+    store = load_config_store()
+    store.update_active(naify_config)
+    save_config_store(store)
+
+
+def save_config_store(store: NaifyConfigStore) -> None:
+    save_json_atomically(CONFIG_PATH, store.model_dump_json(indent=4))
+
+
+def load_config_store() -> NaifyConfigStore:
+    if not CONFIG_PATH.exists():
+        store = NaifyConfigStore()
+        save_config_store(store)
+        return store
+
+    with open(CONFIG_PATH, "r", encoding="utf-8") as json_file:
+        raw = json_file.read()
+    store = NaifyConfigStore.model_validate_json(raw)
+    if "presets" not in json.loads(raw):
+        save_config_store(store)
+    return store
 
 
 def load_config() -> NaifyConfig:
-    naify_config: NaifyConfig
-
-    if not CONFIG_PATH.exists():
-        naify_config = NaifyConfig()
-        save_config(naify_config)
-        return naify_config
-
-    with open(CONFIG_PATH, "r", encoding="utf-8") as json_file:
-        config_json: str = json_file.read()
-
-    naify_config = NaifyConfig.model_validate_json(config_json)
-    naify_config.generation.fit_resolution()
-
-    return naify_config
+    return load_config_store().active_config()
 
 
 def save_secrets(naify_secrets: NaifySecrets) -> None:

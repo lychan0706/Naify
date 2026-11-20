@@ -6,6 +6,7 @@ import asyncio
 import json
 from contextlib import asynccontextmanager
 from fastapi import Request
+from pydantic import BaseModel
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -13,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from fastapi import Request
 
 from core import naify_image_fetcher, naify_cache, naify_api_work
-from core.naify_config import NaifySecrets, NaifyConfig, load_config, save_config, save_secrets, load_secrets
+from core.naify_config import NaifySecrets, NaifyConfig, PresetConfig, load_config_store, save_config_store, save_secrets, load_secrets
 from core.naify_utility import open_manager, shutdown_server, print_log
 from core.naify_paths import ensure_data_dirs, WEB_DIR
 from core.naify_utility import wait_for_logs
@@ -64,7 +65,9 @@ app.add_middleware(
 # 경로 초기화 및 Config 가져오기
 ensure_data_dirs()
 
-naify_config: NaifyConfig = load_config()
+config_lock = threading.RLock()
+naify_preset_store = load_config_store()
+naify_config: NaifyConfig = naify_preset_store.active_config()
 naify_secrets: NaifySecrets = load_secrets()
 
 
@@ -106,24 +109,117 @@ def get_config() -> NaifyConfig:
 
     print_log(content="got config request")
 
-    config = naify_config
+    with config_lock:
+        config = naify_config.model_copy(deep=True)
 
     return config
 
 
 @app.put("/config")
 def update_config(config: NaifyConfig, request: Request) -> None:
-    global naify_config
+    global naify_config, naify_preset_store
 
     preferred = request.headers.get("x-naify-resolution-priority", "height")
     config.generation.fit_resolution(preferred)
-    save_config(config)
-    naify_config = config
+    with config_lock:
+        updated_store = naify_preset_store.model_copy(deep=True)
+        updated_store.update_active(config)
+        save_config_store(updated_store)
+        naify_preset_store = updated_store
+        naify_config = config
     naify_cache.trim_cache(config.cache)
 
     print_log(content="config updated")
 
     return
+
+
+@app.get("/presets")
+def list_presets() -> dict:
+    with config_lock:
+        return {"active_preset": naify_preset_store.active_preset,
+                "names": list(naify_preset_store.presets)}
+
+
+class PresetName(BaseModel):
+    name: str
+
+
+def check_preset_name(name: str) -> str:
+    name = name.strip()
+    if not name or len(name) > 60 or any(c in name for c in "\r\n\t"):
+        raise fastapi.HTTPException(status_code=400, detail="Invalid preset name")
+    return name
+
+
+def verify_preset_action(request: Request) -> None:
+    if request.headers.get("origin") != "http://127.0.0.1:8000" or request.headers.get("x-naify-action") != "manage-preset":
+        raise fastapi.HTTPException(status_code=403, detail="Forbidden")
+
+
+def commit_presets(store) -> None:
+    global naify_preset_store, naify_config
+    save_config_store(store)
+    naify_preset_store = store
+    naify_config = store.active_config()
+
+
+@app.post("/presets", status_code=201)
+def create_preset(data: PresetName, request: Request) -> dict:
+    verify_preset_action(request)
+    name = check_preset_name(data.name)
+    with config_lock:
+        if name in naify_preset_store.presets:
+            raise fastapi.HTTPException(status_code=409, detail="Preset already exists")
+        store = naify_preset_store.model_copy(deep=True)
+        store.presets[name] = PresetConfig.model_validate(store.presets[store.active_preset].model_dump())
+        commit_presets(store)
+    return {"name": name}
+
+
+@app.put("/presets/{name}")
+def rename_preset(name: str, data: PresetName, request: Request) -> dict:
+    verify_preset_action(request)
+    new_name = check_preset_name(data.name)
+    with config_lock:
+        if name not in naify_preset_store.presets:
+            raise fastapi.HTTPException(status_code=404, detail="Preset not found")
+        if new_name != name and new_name in naify_preset_store.presets:
+            raise fastapi.HTTPException(status_code=409, detail="Preset already exists")
+        store = naify_preset_store.model_copy(deep=True)
+        store.presets = {new_name if key == name else key: value for key, value in store.presets.items()}
+        if store.active_preset == name:
+            store.active_preset = new_name
+        commit_presets(store)
+    return {"name": new_name}
+
+
+@app.delete("/presets/{name}")
+def delete_preset(name: str, request: Request) -> dict:
+    verify_preset_action(request)
+    with config_lock:
+        if name not in naify_preset_store.presets:
+            raise fastapi.HTTPException(status_code=404, detail="Preset not found")
+        if len(naify_preset_store.presets) == 1:
+            raise fastapi.HTTPException(status_code=409, detail="Cannot delete last preset")
+        store = naify_preset_store.model_copy(deep=True)
+        del store.presets[name]
+        if store.active_preset == name:
+            store.active_preset = next(iter(store.presets))
+        commit_presets(store)
+    return {"active_preset": store.active_preset}
+
+
+@app.post("/presets/{name}/activate")
+def activate_preset(name: str, request: Request) -> dict:
+    verify_preset_action(request)
+    with config_lock:
+        if name not in naify_preset_store.presets:
+            raise fastapi.HTTPException(status_code=404, detail="Preset not found")
+        store = naify_preset_store.model_copy(deep=True)
+        store.active_preset = name
+        commit_presets(store)
+    return {"active_preset": name}
 
 
 @app.get("/secrets/status")
@@ -202,6 +298,17 @@ def delete_all_cache(request: Request) -> dict:
 
     deleted_count = naify_cache.clear_cache()
     return {"deleted_count": deleted_count}
+
+
+@app.delete("/cache/image/{image_id}")
+def delete_cached_image(image_id: str, request: Request) -> dict:
+    if request.headers.get("origin") != "http://127.0.0.1:8000" or request.headers.get("x-naify-action") != "delete-image":
+        raise fastapi.HTTPException(status_code=403, detail="Forbidden")
+    if re.fullmatch(r"[0-9a-f]{64}", image_id) is None:
+        raise fastapi.HTTPException(status_code=400, detail="Invalid image ID")
+    if not naify_cache.delete_image_from_cache(image_id):
+        raise fastapi.HTTPException(status_code=404, detail="Cached image not found")
+    return {"deleted": True}
 
 
 @app.post("/queue/cancel_pending")

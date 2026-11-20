@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from fastapi import HTTPException
 
-from core import naify_api_work, naify_config, naify_image_fetcher, naify_utility
+from core import naify_api_work, naify_config, naify_image_fetcher, naify_utility, naify_cache
 import main
 
 
@@ -65,20 +65,71 @@ class ReleaseFixTests(unittest.TestCase):
     def test_config_endpoint_prioritizes_last_edited_dimension(self):
         request = SimpleNamespace(headers={"x-naify-resolution-priority": "height"})
         original = main.naify_config
+        original_store = main.naify_preset_store
         try:
             config = naify_config.NaifyConfig(generation={"width": 3008, "height": 1000})
-            with patch.object(main, "save_config") as save, \
+            with patch.object(main, "save_config_store") as save, \
                     patch.object(main.naify_cache, "trim_cache") as trim:
                 main.update_config(config, request)
             self.assertEqual((config.generation.width, config.generation.height), (2496, 1024))
-            save.assert_called_once_with(config)
+            save.assert_called_once()
+            self.assertEqual(main.naify_preset_store.active_config().generation.width, 2496)
             trim.assert_called_once_with(config.cache)
         finally:
             main.naify_config = original
+            main.naify_preset_store = original_store
 
     def test_old_config_with_seed_still_loads(self):
         config = naify_config.NaifyConfig.model_validate({"generation": {"seed": 12345}})
         self.assertNotIn("seed", config.generation.model_dump())
+
+    def test_legacy_config_migrates_to_default_preset(self):
+        store = naify_config.NaifyConfigStore.model_validate({
+            "generation": {"steps": 35},
+            "prompt": {"base_prompt": "legacy"},
+            "cache": {"max_images": 3}
+        })
+        self.assertEqual(store.active_preset, "default")
+        self.assertEqual(store.active_config().generation.steps, 35)
+        self.assertEqual(store.active_config().prompt.base_prompt, "legacy")
+        self.assertEqual(store.cache.max_images, 3)
+
+    def test_preset_crud_and_switch_keeps_independent_settings(self):
+        original_store, original_config = main.naify_preset_store, main.naify_config
+        request = SimpleNamespace(headers={"origin": "http://127.0.0.1:8000", "x-naify-action": "manage-preset"})
+        try:
+            main.naify_preset_store = naify_config.NaifyConfigStore()
+            main.naify_config = main.naify_preset_store.active_config()
+            with patch.object(main, "save_config_store"):
+                main.create_preset(main.PresetName(name="quality"), request)
+                main.activate_preset("quality", request)
+                modified = main.naify_config.model_copy(deep=True)
+                modified.generation.steps = 45
+                main.update_config(modified, SimpleNamespace(headers={}))
+                main.activate_preset("default", request)
+                self.assertEqual(main.naify_config.generation.steps, 28)
+                main.rename_preset("quality", main.PresetName(name="detailed"), request)
+                self.assertIn("detailed", main.naify_preset_store.presets)
+                main.delete_preset("default", request)
+                self.assertEqual(main.naify_preset_store.active_preset, "detailed")
+                with self.assertRaises(HTTPException):
+                    main.delete_preset("detailed", request)
+        finally:
+            main.naify_preset_store, main.naify_config = original_store, original_config
+
+    def test_individual_cache_delete_keeps_other_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache_dir = Path(directory)
+            first, second = "a" * 64, "b" * 64
+            (cache_dir / f"{first}.webp").write_bytes(b"first")
+            (cache_dir / f"{second}.webp").write_bytes(b"second")
+            with patch.object(naify_cache, "CACHE_DIR", cache_dir):
+                status = naify_cache.get_cache_status()
+                self.assertEqual(len(status["images"]), 2)
+                self.assertIn(str((cache_dir / f"{first}.webp").resolve()), [item["path"] for item in status["images"]])
+                self.assertTrue(naify_cache.delete_image_from_cache(first))
+                self.assertFalse(naify_cache.delete_image_from_cache(first))
+                self.assertTrue((cache_dir / f"{second}.webp").exists())
 
     def test_log_waiter_wakes_up_on_new_log(self):
         seen = naify_utility.last_log_id

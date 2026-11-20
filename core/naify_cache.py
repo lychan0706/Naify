@@ -35,6 +35,7 @@ def get_cache_status() -> dict:
             image_stat = image.stat()
             images.append({
                 "id": image.stem,
+                "path": str(image.resolve()),
                 "size": image_stat.st_size,
                 "modified_at": image_stat.st_mtime
             })
@@ -48,6 +49,16 @@ def get_cache_status() -> dict:
         }
 
         return cache_status
+
+
+def delete_image_from_cache(image_id: str) -> bool:
+    with cache_lock:
+        image_path = CACHE_DIR / f"{image_id}.webp"
+        if not image_path.is_file():
+            return False
+        image_path.unlink()
+        print_log(content=f"Deleted cache image: {image_id}")
+        return True
 
 
 def clear_cache() -> int:
