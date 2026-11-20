@@ -113,7 +113,6 @@
         </div>
         <div class="image-dialog-footer">
             <p id="image-dialog-status" role="status"></p>
-            <button type="button" id="image-dialog-delete" class="danger-button">이미지 삭제</button>
         </div>
     </dialog>
 
@@ -455,6 +454,8 @@
 
                 for (const image of data.images) {
                     const item = document.createElement("figure");
+                    const thumbnail = document.createElement("div");
+                    thumbnail.className = "cache-thumbnail";
                     const preview = document.createElement("img");
                     const caption = document.createElement("figcaption");
 
@@ -471,10 +472,21 @@
                     preview.loading = "lazy";
                     openImage.appendChild(preview);
 
+                    const deleteButton = document.createElement("button");
+                    deleteButton.type = "button";
+                    deleteButton.className = "cache-thumbnail-delete danger-button";
+                    deleteButton.textContent = "삭제";
+                    deleteButton.setAttribute("aria-label", `캐시 이미지 ${image.id.slice(0, 8)} 삭제`);
+                    deleteButton.addEventListener("click", (event) => {
+                        event.stopPropagation();
+                        deleteCachedImage(image, deleteButton);
+                    });
+                    thumbnail.append(openImage, deleteButton);
+
                     const date = new Date(image.modified_at * 1000);
                     caption.textContent = `${date.toLocaleString("ko-KR")} · ${(image.size / 1024).toFixed(0)} KB`;
 
-                    item.append(openImage, caption);
+                    item.append(thumbnail, caption);
                     gallery.appendChild(item);
                 }
             } catch (error) {
@@ -483,31 +495,24 @@
             }
         }
 
-        let selectedCacheImage = null;
-
         function showImageDialog(image) {
-            selectedCacheImage = image;
             getInput("image-dialog-preview").src = `/cache/image/${encodeURIComponent(image.id)}`;
             getInput("image-dialog-path").value = image.path;
             getInput("image-dialog-status").textContent = "";
             getInput("image-dialog").showModal();
         }
 
-        async function deleteSelectedImage() {
-            if (!selectedCacheImage || !confirm("이 캐시 이미지를 삭제하시겠습니까?")) return;
-            const button = getInput("image-dialog-delete");
+        async function deleteCachedImage(image, button) {
             button.disabled = true;
             try {
-                const response = await fetch(`/cache/image/${encodeURIComponent(selectedCacheImage.id)}`, {
+                const response = await fetch(`/cache/image/${encodeURIComponent(image.id)}`, {
                     method: "DELETE", headers: { "X-Naify-Action": "delete-image" }
                 });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                getInput("image-dialog").close();
-                selectedCacheImage = null;
                 await loadCacheGallery();
                 showTemporaryStatus(getInput("cache-action-status"), "이미지를 삭제했습니다.");
             } catch (error) {
-                showTemporaryStatus(getInput("image-dialog-status"), `삭제 실패: ${error.message}`);
+                showTemporaryStatus(getInput("cache-action-status"), `삭제 실패: ${error.message}`);
             } finally {
                 button.disabled = false;
             }
@@ -730,7 +735,16 @@
         getInput("preset-rename").addEventListener("click", () => managePreset("rename"));
         getInput("preset-delete").addEventListener("click", () => managePreset("delete"));
         getInput("image-dialog-close").addEventListener("click", () => getInput("image-dialog").close());
-        getInput("image-dialog-delete").addEventListener("click", deleteSelectedImage);
+        getInput("image-dialog").addEventListener("click", (event) => {
+            const dialog = event.currentTarget;
+            const bounds = dialog.getBoundingClientRect();
+            if (event.target === dialog && (
+                event.clientX < bounds.left || event.clientX > bounds.right ||
+                event.clientY < bounds.top || event.clientY > bounds.bottom
+            )) {
+                dialog.close();
+            }
+        });
         getInput("image-dialog-copy").addEventListener("click", async () => {
             try {
                 await navigator.clipboard.writeText(getInput("image-dialog-path").value);

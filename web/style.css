@@ -416,6 +416,29 @@ button:disabled {
     border-radius: 8px;
 }
 
+.cache-thumbnail { position: relative; }
+
+.cache-thumbnail-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+    padding: 5px 12px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s, visibility 0.15s;
+}
+
+.cache-thumbnail:hover .cache-thumbnail-delete,
+.cache-thumbnail:focus-within .cache-thumbnail-delete {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (hover: none) {
+    .cache-thumbnail-delete { opacity: 1; visibility: visible; }
+}
+
 .cache-image-link {
     display: block;
     width: 100%;
@@ -457,7 +480,8 @@ button:disabled {
     object-fit: contain;
 }
 .image-dialog-path-row { margin: 6px 0 14px; }
-.image-dialog-path-row input { width: 100%; min-width: 0; }
+.image-dialog-path-row input { flex: 1 1 auto; width: 0; min-width: 0; }
+.image-dialog-path-row button { flex: 0 0 auto; white-space: nowrap; min-width: 70px; }
 .image-dialog-footer p { margin: 0; overflow-wrap: anywhere; }
 
 .cache-image-link:focus-visible {
