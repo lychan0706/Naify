@@ -71,10 +71,10 @@ def generation_request_queue_processor() -> None:
                 total_elapsed = process_termination_time - process_initiation_time
 
                 pending_count = generation_request_queue.qsize()
-                print_log(image_id=image_id, content=f"Generated: {round(total_elapsed, 2)}sec | {pending_count} more left")
-
                 naify_cache.save_image_to_cache(image_id, image_bytes)
                 naify_cache.trim_cache(config.cache)
+                # 캐시 저장까지 완료된 후 로그를 남겨 웹 관리자가 안전하게 갱신할 수 있게 한다.
+                print_log(image_id=image_id, content=f"Generated: {round(total_elapsed, 2)}sec | {pending_count} more left")
 
             future.set_result(image_bytes)
 

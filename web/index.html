@@ -665,6 +665,19 @@
 
         // 10. 서버 로그 실시간 수신 (Server-Sent Events)
         let serverLogStream = null;
+        let cacheRefreshTimer = null;
+
+        function scheduleCacheRefresh() {
+            // 목록을 닫은 동안에는 불필요한 요청을 보내지 않는다.
+            // 다시 펼치면 toggle 이벤트가 최신 목록을 불러온다.
+            if (!getInput("cache-gallery-panel").open) return;
+            clearTimeout(cacheRefreshTimer);
+            // 여러 이미지가 연속 생성될 때는 마지막 생성 이후 한 번만 갱신한다.
+            cacheRefreshTimer = setTimeout(() => {
+                cacheRefreshTimer = null;
+                loadCacheGallery();
+            }, 150);
+        }
 
         function closeServerLogs() {
             if (serverLogStream !== null) {
@@ -705,6 +718,11 @@
                 const line = document.createElement("div");
                 line.textContent = String(message);
                 output.appendChild(line);
+
+                // Generated 로그는 파일 저장 및 캐시 정리가 끝난 후 발생한다.
+                if (/\] [0-9a-f]{6} : Generated:/.test(message)) {
+                    scheduleCacheRefresh();
+                }
 
                 while (output.childElementCount > 300) {
                     output.firstElementChild.remove();
