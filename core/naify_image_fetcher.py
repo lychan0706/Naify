@@ -1,7 +1,6 @@
 from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from queue import Queue, Empty
 from hashlib import sha256
-import json
 from core.naify_cache import get_image_from_cache
 from core.naify_api_work import generate_image
 from core.naify_utility import print_log
@@ -113,7 +112,9 @@ def cancel_pending_requests() -> int:
 
 
 def make_image_id(prompt: str, char1: str = "", char2: str = "", char3: str = "") -> str:
-    # 구형 캐시와 의미가 달라진 prompt가 충돌하지 않도록 버전 태그를 포함한다.
-    values = ["characters-v2", prompt, char1, char2, char3]
-    serialized = json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+    serialized = prompt
+    delimiter = "\x1f"
+    for char in (char1, char2, char3):
+        if char:
+            serialized += delimiter + char
     return sha256(serialized.encode("utf-8")).hexdigest()
