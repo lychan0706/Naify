@@ -92,7 +92,8 @@ class ReleaseFixTests(unittest.TestCase):
         self.assertEqual(store.active_preset, "default")
         self.assertEqual(store.active_config().generation.steps, 35)
         self.assertEqual(store.active_config().prompt.base_prompt, "legacy")
-        self.assertEqual(store.cache.max_images, 3)
+        self.assertNotIn("max_images", store.cache.model_dump())
+        self.assertEqual(store.cache.webp_quality, 90)
 
     def test_preset_crud_and_switch_keeps_independent_settings(self):
         original_store, original_config = main.naify_preset_store, main.naify_config
