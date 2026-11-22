@@ -3,6 +3,7 @@ from queue import Queue, Empty
 from hashlib import sha256
 from core.naify_cache import get_image_from_cache
 from core.naify_api_work import generate_image_stream
+from core.naify_image_optimizer import optimize_image
 from core.naify_utility import print_log
 from core import naify_cache
 from core.naify_config import NaifyConfig, NaifySecrets
@@ -66,6 +67,13 @@ def generation_request_queue_processor() -> None:
                     prompt=prompt, char1=char1, char2=char2, char3=char3,
                     on_progress=lambda percent: print_log(image_id, f"Progress: {percent}%")
                 )
+
+                # 새로 생성한 이미지에만 Q80 압축과 메타데이터 제거 적용.
+                # 기존 캐시 이미지는 이 경로를 거치지 않는다.
+                original_size = len(image_bytes)
+                optimized_bytes = optimize_image(image_bytes)
+                image_bytes = optimized_bytes
+                print_log(image_id, f"Optimized WebP: {original_size // 1024} -> {len(image_bytes) // 1024} KiB (Q80)")
 
                 # 소요 시간 계산
                 process_termination_time = time.perf_counter()
