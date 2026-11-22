@@ -4,6 +4,7 @@ from hashlib import sha256
 from core.naify_cache import get_image_from_cache
 from core.naify_api_work import generate_image_stream
 from core.naify_image_optimizer import optimize_image
+from core.naify_regeneration import make_regeneration_metadata
 from core.naify_utility import print_log
 from core import naify_cache
 from core.naify_config import NaifyConfig, NaifySecrets
@@ -15,10 +16,10 @@ import time
 generation_request_queue = Queue()
 
 
-def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, prompt: str, worker_thread: threading.Thread, char1: str = "", char2: str = "", char3: str = "") -> bytes:
+def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, prompt: str, worker_thread: threading.Thread, char1: str = "", char2: str = "", char3: str = "", force_regeneration: bool = False) -> bytes:
     # 캐시 확인과 파일 읽기는 하나의 잠금 안에서 처리한다.
     # 전체 삭제가 동시에 실행되어도 파일이 중간에 사라지지 않는다.
-    image_bytes = get_image_from_cache(image_id)
+    image_bytes = None if force_regeneration else get_image_from_cache(image_id)
 
     if image_bytes is not None:
         print_log(image_id, f"Getting image from cache | Waiting: {generation_request_queue.qsize()}")
@@ -26,7 +27,7 @@ def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, promp
         if not worker_thread.is_alive():
             raise HTTPException(status_code=503, detail="Image generation worker stopped")
         future = Future()
-        generation_request_queue.put((image_id, secrets, config, prompt, future, char1, char2, char3))
+        generation_request_queue.put((image_id, secrets, config, prompt, future, char1, char2, char3, force_regeneration))
         print_log(image_id, f"Queued for generation | Waiting: {generation_request_queue.qsize()}")
         # 큐가 길어도 정상적인 생성 작업은 기다린다. 단, Worker가 죽으면 대기를 끝낸다.
         while True:
@@ -47,11 +48,11 @@ def generation_request_queue_processor() -> None:
     """
 
     while True:
-        image_id, secrets, config, prompt, future, char1, char2, char3 = generation_request_queue.get()
+        image_id, secrets, config, prompt, future, char1, char2, char3, force_regeneration = generation_request_queue.get()
 
         try:
             # 큐에서 꺼낸 시점에도 캐시를 재조회해 중복 생성을 방지한다.
-            image_bytes = get_image_from_cache(image_id)
+            image_bytes = None if force_regeneration else get_image_from_cache(image_id)
 
             if image_bytes is not None:
                 print_log(image_id=image_id, content="Found in cache. Serving existing image from cache.")
@@ -68,12 +69,14 @@ def generation_request_queue_processor() -> None:
                     on_progress=lambda percent: print_log(image_id, f"Progress: {percent}%")
                 )
 
-                # 새로 생성한 이미지에만 Q80 압축과 메타데이터 제거 적용.
-                # 기존 캐시 이미지는 이 경로를 거치지 않는다.
+                # 생성 당시 입력/설정을 EXIF에 기록하고 현재 품질로 재압축한다.
+                # 캐시 적중 시에는 기존 이미지를 변경하지 않는다.
                 original_size = len(image_bytes)
-                optimized_bytes = optimize_image(image_bytes)
-                image_bytes = optimized_bytes
-                print_log(image_id, f"Optimized WebP: {original_size // 1024} -> {len(image_bytes) // 1024} KiB (Q80)")
+                metadata = make_regeneration_metadata(prompt, char1, char2, char3, config)
+                image_bytes = optimize_image(
+                    image_bytes, quality=config.cache.webp_quality, metadata=metadata
+                )
+                print_log(image_id, f"Optimized WebP: {original_size // 1024} -> {len(image_bytes) // 1024} KiB (Q{config.cache.webp_quality})")
 
                 # 소요 시간 계산
                 process_termination_time = time.perf_counter()
