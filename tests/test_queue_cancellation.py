@@ -24,6 +24,23 @@ class PendingGenerationCancellationTests(unittest.TestCase):
         self.queue.put((image_id, None, None, "prompt", future))
         return future
 
+    def test_requested_log_shows_waiting_count(self):
+        self.enqueue("already-waiting")
+        with patch.object(main.naify_image_fetcher, "make_image_id", return_value="image-id"), \
+                patch.object(main.naify_image_fetcher, "fetch_image", return_value=b"webp"), \
+                patch.object(main, "print_log") as logger:
+            response = main.get_image("prompt")
+        self.assertEqual(response.body, b"webp")
+        logger.assert_any_call("image-id", "Requested | Waiting: 1")
+
+    def test_cached_log_shows_waiting_count(self):
+        self.enqueue("already-waiting")
+        with patch.object(naify_image_fetcher, "get_image_from_cache", return_value=b"webp"), \
+                patch.object(naify_image_fetcher, "print_log") as logger:
+            data = naify_image_fetcher.fetch_image("image-id", None, None, "prompt", None)
+        self.assertEqual(data, b"webp")
+        logger.assert_any_call("image-id", "Getting image from cache | Waiting: 1")
+
     def test_pending_requests_are_cancelled_and_queue_accounting_finishes(self):
         first = self.enqueue("first")
         second = self.enqueue("second")
