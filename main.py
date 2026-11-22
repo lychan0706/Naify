@@ -14,6 +14,7 @@ from fastapi.responses import StreamingResponse
 from fastapi import Request
 
 from core import naify_image_fetcher, naify_cache, naify_api_work
+from core.naify_regeneration import read_regeneration_metadata
 from core.naify_config import NaifySecrets, NaifyConfig, PresetConfig, load_config_store, save_config_store, save_secrets, load_secrets
 from core.naify_utility import open_manager, shutdown_server, print_log
 from core.naify_paths import ensure_data_dirs, WEB_DIR
@@ -280,6 +281,67 @@ def get_cached_image(image_id: str) -> fastapi.Response:
         media_type="image/webp",
         headers={"Cache-Control": "no-store"}
     )
+
+
+@app.get("/cache/image/{image_id}/regeneration")
+def get_regeneration_status(image_id: str) -> dict:
+    if re.fullmatch(r"[0-9a-f]{64}", image_id) is None:
+        raise fastapi.HTTPException(status_code=400, detail="Invalid image ID")
+    data = naify_cache.get_image_from_cache(image_id)
+    if data is None:
+        raise fastapi.HTTPException(status_code=404, detail="Cached image not found")
+    return {"available": read_regeneration_metadata(data) is not None}
+
+
+@app.post("/cache/image/{image_id}/regenerate/{mode}")
+def regenerate_cached_image(image_id: str, mode: str, request: Request) -> dict:
+    # POST only from the local manager; the endpoint may spend NovelAI credits.
+    if request.headers.get("origin") != "http://127.0.0.1:8000" or request.headers.get("x-naify-action") != "regenerate-image":
+        raise fastapi.HTTPException(status_code=403, detail="Forbidden")
+    if re.fullmatch(r"[0-9a-f]{64}", image_id) is None:
+        raise fastapi.HTTPException(status_code=400, detail="Invalid image ID")
+    if mode not in ("original", "current"):
+        raise fastapi.HTTPException(status_code=400, detail="Invalid regeneration mode")
+
+    with app.state.request_condition:
+        if app.state.shutting_down:
+            raise fastapi.HTTPException(status_code=409, detail="Server is shutting down")
+        app.state.active_requests += 1
+    try:
+        image_bytes = naify_cache.get_image_from_cache(image_id)
+        if image_bytes is None:
+            raise fastapi.HTTPException(status_code=404, detail="Cached image not found")
+        saved = read_regeneration_metadata(image_bytes)
+        if saved is None:
+            raise fastapi.HTTPException(
+                status_code=409,
+                detail="This cached image has no Naify regeneration metadata"
+            )
+
+        with config_lock:
+            config = naify_config.model_copy(deep=True)
+        if mode == "original":
+            # Generation and prompt settings are historical, cache policy is current.
+            config.generation = saved["config"].generation
+            config.prompt = saved["config"].prompt
+
+        print_log(image_id, f"Regeneration requested ({mode})")
+        naify_image_fetcher.fetch_image(
+            image_id=image_id,
+            secrets=naify_secrets,
+            config=config,
+            prompt=saved["prompt"],
+            worker_thread=app.state.generation_worker,
+            char1=saved["char1"],
+            char2=saved["char2"],
+            char3=saved["char3"],
+            force_regeneration=True
+        )
+        return {"regenerated": True, "image_id": image_id}
+    finally:
+        with app.state.request_condition:
+            app.state.active_requests -= 1
+            app.state.request_condition.notify_all()
 
 
 @app.delete("/cache")
