@@ -265,6 +265,20 @@ class ReleaseFixTests(unittest.TestCase):
             naify_image_fetcher.make_image_id("park", "girl")
         )
 
+    def test_character_cache_id_keeps_single_prompt_compatible(self):
+        from hashlib import sha256
+        prompt = "1girl, blue_eyes"
+        expected = sha256(prompt.encode("utf-8")).hexdigest()
+        self.assertEqual(naify_image_fetcher.make_image_id(prompt), expected)
+        self.assertEqual(naify_image_fetcher.make_image_id(prompt, "", "", ""), expected)
+
+    def test_character_cache_id_ignores_empty_slots(self):
+        make_id = naify_image_fetcher.make_image_id
+        self.assertEqual(make_id("park", "girl"), make_id("park", "", "girl"))
+        self.assertEqual(make_id("park", "girl"), make_id("park", "", "", "girl"))
+        self.assertEqual(make_id("park", "girl", "boy"), make_id("park", "", "girl", "boy"))
+        self.assertNotEqual(make_id("park", "girl", "boy"), make_id("park", "boy", "girl"))
+
     def test_character_payload_sent_to_novelai(self):
         response = Mock(status_code=200, content=b"zip")
         with patch.object(naify_api_work.httpx, "post", return_value=response) as post, \
