@@ -1,4 +1,6 @@
 from threading import RLock
+import os
+import tempfile
 from core.naify_utility import print_log
 from core.naify_config import CacheConfig
 from core.naify_paths import CACHE_DIR
@@ -19,7 +21,17 @@ def get_image_from_cache(image_id: str) -> bytes | None:
 def save_image_to_cache(image_id: str, image_bytes: bytes) -> None:
     with cache_lock:
         image_path = CACHE_DIR / f"{image_id}.webp"
-        image_path.write_bytes(image_bytes)
+        temporary_path = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=CACHE_DIR, suffix=".tmp", delete=False) as temp:
+                temporary_path = temp.name
+                temp.write(image_bytes)
+                temp.flush()
+                os.fsync(temp.fileno())
+            os.replace(temporary_path, image_path)
+        finally:
+            if temporary_path and os.path.exists(temporary_path):
+                os.unlink(temporary_path)
 
 
 def get_cache_size() -> int:
@@ -81,7 +93,7 @@ def trim_cache(cache_config: CacheConfig) -> None:
         )
         cache_size = sum(image.stat().st_size for image in cache_images)
 
-        while (cache_size > cache_config.max_cache_size or len(cache_images) > cache_config.max_images) and cache_images:
+        while cache_size > cache_config.max_cache_size and cache_images:
             oldest_image = cache_images.pop()
             cache_size -= oldest_image.stat().st_size
             oldest_image.unlink()
