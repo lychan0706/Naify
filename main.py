@@ -347,7 +347,7 @@ def get_image(prompt: str, char1: str = "", char2: str = "", char3: str = "") ->
         # 이미지 ID 생성
         image_id: str = naify_image_fetcher.make_image_id(prompt, char1, char2, char3)
 
-        print_log(image_id, f"Requested | Waiting: {naify_image_fetcher.generation_request_queue.qsize()}")
+        print_log(image_id, "Requested")
 
         # 이미지 제공
         image_bytes = naify_image_fetcher.fetch_image(
