@@ -724,7 +724,7 @@
             }
 
             const remainingSlots = Math.max(0, QUEUE_DISPLAY_LIMIT - elements.length);
-            const visibleWaiting = Math.min(count, remainingSlots);
+            const visibleWaiting = Math.min(count, count > remainingSlots ? remainingSlots - 1 : remainingSlots);
             for (let i = 0; i < visibleWaiting; i++) {
                 const waiting = document.createElement("div");
                 waiting.className = "generation-queue-slot waiting";
@@ -737,7 +737,6 @@
                 const more = document.createElement("div");
                 more.className = "generation-queue-slot waiting overflow";
                 more.textContent = "+" + (count - visibleWaiting);
-                if (elements.length === QUEUE_DISPLAY_LIMIT) elements.pop();
                 elements.push(more);
             }
             if (!elements.length) {
@@ -776,6 +775,13 @@
                 || text.startsWith("Found in cache.")
             )) {
                 if (queueState.active && queueState.active.id === id) queueState.active = null;
+                if (text.startsWith("Found in cache.")) {
+                    const index = queueState.waiting.indexOf(id);
+                    if (index !== -1) {
+                        queueState.waiting.splice(index, 1);
+                        queueState.count = Math.max(0, queueState.count - 1);
+                    }
+                }
                 if (waiting) queueState.count = Number(waiting[1]);
             } else if (id !== "SERVER" && text.startsWith("Getting image from cache")) {
                 if (waiting) queueState.count = Number(waiting[1]);
