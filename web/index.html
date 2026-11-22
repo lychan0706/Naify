@@ -513,6 +513,7 @@
         }
 
         let selectedCacheImage = null;
+        let selectedImageRegenerable = false;
         let regenerationBusy = false;
 
         function setRegenerationButtonsDisabled(disabled) {
@@ -522,6 +523,7 @@
 
         async function showImageDialog(image) {
             selectedCacheImage = image;
+            selectedImageRegenerable = false;
             const imageId = image.id;
             getInput("image-dialog-preview").src = `/cache/image/${encodeURIComponent(imageId)}`;
             getInput("image-dialog-path").value = image.path;
@@ -533,7 +535,8 @@
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const data = await response.json();
                 if (selectedCacheImage?.id !== imageId) return;
-                setRegenerationButtonsDisabled(regenerationBusy || !data.available);
+                selectedImageRegenerable = Boolean(data.available);
+                setRegenerationButtonsDisabled(regenerationBusy || !selectedImageRegenerable);
                 getInput("image-dialog-status").textContent = data.available
                     ? "" : "이 이미지에는 Naify 재생성 정보가 없습니다.";
             } catch (error) {
@@ -571,7 +574,9 @@
                 }
             } finally {
                 regenerationBusy = false;
-                if (selectedCacheImage?.id === imageId) setRegenerationButtonsDisabled(false);
+                if (selectedCacheImage?.id === imageId) {
+                    setRegenerationButtonsDisabled(!selectedImageRegenerable);
+                }
             }
         }
 
