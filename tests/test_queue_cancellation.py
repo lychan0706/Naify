@@ -28,6 +28,7 @@ class PendingGenerationCancellationTests(unittest.TestCase):
         self.enqueue("already-waiting")
         with patch.object(main.naify_image_fetcher, "make_image_id", return_value="image-id"), \
                 patch.object(main.naify_image_fetcher, "fetch_image", return_value=b"webp"), \
+                patch.object(main.app.state, "generation_worker", object(), create=True), \
                 patch.object(main, "print_log") as logger:
             response = main.get_image("prompt")
         self.assertEqual(response.body, b"webp")
