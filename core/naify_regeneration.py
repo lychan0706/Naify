@@ -12,7 +12,7 @@ from core.naify_config import NaifyConfig
 
 
 COMMENT_TAG = 40092  # EXIF XPComment; leaves NovelAI UserComment untouched
-COMMENT_PREFIX = b"ASCII\x00\x00\x00Naify:"
+COMMENT_PREFIX = "Naify:"
 MAX_COMMENT_BYTES = 256 * 1024
 
 
@@ -35,7 +35,7 @@ def encode_regeneration_metadata(metadata: dict) -> bytes:
     """Windows XPComment is UTF-16LE; never overwrite NovelAI UserComment."""
     return (COMMENT_PREFIX + json.dumps(
         metadata, ensure_ascii=False, separators=(",", ":")
-    )).encode("utf-16le") + b"\\x00\\x00"
+    )).encode("utf-16le") + b"\x00\x00"
 
 
 def read_regeneration_metadata(image_bytes: bytes) -> dict | None:
@@ -45,7 +45,7 @@ def read_regeneration_metadata(image_bytes: bytes) -> dict | None:
             comment = image.getexif().get(COMMENT_TAG)
         if not isinstance(comment, bytes) or len(comment) > MAX_COMMENT_BYTES:
             return None
-        text = comment.decode("utf-16le").rstrip("\\x00")
+        text = comment.decode("utf-16le").rstrip("\x00")
         if not text.startswith(COMMENT_PREFIX):
             return None
         data = json.loads(text[len(COMMENT_PREFIX):])
