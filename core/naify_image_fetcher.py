@@ -2,7 +2,7 @@ from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from queue import Queue, Empty
 from hashlib import sha256
 from core.naify_cache import get_image_from_cache
-from core.naify_api_work import generate_image
+from core.naify_api_work import generate_image_stream
 from core.naify_utility import print_log
 from core import naify_cache
 from core.naify_config import NaifyConfig, NaifySecrets
@@ -61,7 +61,11 @@ def generation_request_queue_processor() -> None:
                 # 시작 시각 기록
                 process_initiation_time = time.perf_counter()
 
-                image_bytes = generate_image(image_id=image_id, naify_secrets=secrets, naify_config=config, prompt=prompt, char1=char1, char2=char2, char3=char3)
+                image_bytes = generate_image_stream(
+                    image_id=image_id, naify_secrets=secrets, naify_config=config,
+                    prompt=prompt, char1=char1, char2=char2, char3=char3,
+                    on_progress=lambda percent: print_log(image_id, f"Progress: {percent}%")
+                )
 
                 # 소요 시간 계산
                 process_termination_time = time.perf_counter()
@@ -75,6 +79,7 @@ def generation_request_queue_processor() -> None:
             future.set_result(image_bytes)
 
         except Exception as e:
+            print_log(image_id=image_id, content=f"Generation failed: {type(e).__name__}")
             future.set_exception(e)
 
         finally:
