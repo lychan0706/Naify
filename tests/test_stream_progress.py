@@ -34,10 +34,6 @@ class StreamProgressTests(unittest.TestCase):
         ]
         response = Mock(status_code=200)
         response.iter_lines.return_value = iter(lines)
-        context = Mock()
-        context.__enter__ = Mock(return_value=response)
-        context.__exit__ = Mock(return_value=False)
-        # MagicMock supplies the context-manager protocol for httpx.stream.
         from unittest.mock import MagicMock
         stream = MagicMock()
         stream.return_value.__enter__.return_value = response
