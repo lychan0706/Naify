@@ -190,7 +190,9 @@ def load_config_store() -> NaifyConfigStore:
     with open(CONFIG_PATH, "r", encoding="utf-8") as json_file:
         raw = json_file.read()
     store = NaifyConfigStore.model_validate_json(raw)
-    if "presets" not in json.loads(raw):
+    raw_data = json.loads(raw)
+    if "presets" not in raw_data or "max_images" in raw_data.get("cache", {}):
+        # Drop obsolete legacy cache-count settings from config.json.
         save_config_store(store)
     return store
 
