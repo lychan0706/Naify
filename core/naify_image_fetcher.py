@@ -21,7 +21,7 @@ def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, promp
     image_bytes = get_image_from_cache(image_id)
 
     if image_bytes is not None:
-        print_log(image_id, "Getting image from cache")
+        print_log(image_id, f"Getting image from cache | Waiting: {generation_request_queue.qsize()}")
     else:
         if not worker_thread.is_alive():
             raise HTTPException(status_code=503, detail="Image generation worker stopped")
@@ -70,11 +70,10 @@ def generation_request_queue_processor() -> None:
                 process_termination_time = time.perf_counter()
                 total_elapsed = process_termination_time - process_initiation_time
 
-                pending_count = generation_request_queue.qsize()
                 naify_cache.save_image_to_cache(image_id, image_bytes)
                 naify_cache.trim_cache(config.cache)
                 # 캐시 저장까지 완료된 후 로그를 남겨 웹 관리자가 안전하게 갱신할 수 있게 한다.
-                print_log(image_id=image_id, content=f"Generated: {round(total_elapsed, 2)}sec | {pending_count} more left")
+                print_log(image_id=image_id, content=f"Generated: {round(total_elapsed, 2)}sec | Waiting: {generation_request_queue.qsize()}")
 
             future.set_result(image_bytes)
 
