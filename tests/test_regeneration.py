@@ -1,6 +1,7 @@
 import io
 import tempfile
 import unittest
+from queue import Queue
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -9,7 +10,7 @@ from fastapi import HTTPException
 from PIL import Image
 
 import main
-from core import naify_cache
+from core import naify_cache, naify_image_fetcher
 from core.naify_config import CacheConfig, NaifyConfig
 from core.naify_image_optimizer import optimize_image
 from core.naify_regeneration import make_regeneration_metadata
@@ -83,6 +84,25 @@ class RegenerationApiTests(unittest.TestCase):
                 main.regenerate_cached_image("a" * 64, "original", self.request())
         self.assertEqual(raised.exception.status_code, 409)
         fetch.assert_not_called()
+
+
+class QueueRegenerationTests(unittest.TestCase):
+    def test_forced_regeneration_queues_even_when_cached(self):
+        queue = Queue()
+        worker = SimpleNamespace(is_alive=lambda: True)
+        future = SimpleNamespace(result=lambda timeout: b"new-image")
+        with patch.object(naify_image_fetcher, "generation_request_queue", queue), \
+                patch.object(naify_image_fetcher, "get_image_from_cache", return_value=b"cached") as cache, \
+                patch.object(naify_image_fetcher, "Future", return_value=future):
+            result = naify_image_fetcher.fetch_image(
+                "a" * 64, None, NaifyConfig(), "lake", worker,
+                force_regeneration=True
+            )
+            queued = queue.get_nowait()
+        self.assertEqual(result, b"new-image")
+        self.assertTrue(queued[-1])
+        self.assertEqual(queued[3], "lake")
+        cache.assert_not_called()
 
 
 class CachePolicyTests(unittest.TestCase):
