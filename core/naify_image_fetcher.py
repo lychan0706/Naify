@@ -25,9 +25,9 @@ def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, promp
     else:
         if not worker_thread.is_alive():
             raise HTTPException(status_code=503, detail="Image generation worker stopped")
-        print_log(image_id, "Queued for generation")
         future = Future()
         generation_request_queue.put((image_id, secrets, config, prompt, future, char1, char2, char3))
+        print_log(image_id, f"Queued for generation | Waiting: {generation_request_queue.qsize()}")
         # 큐가 길어도 정상적인 생성 작업은 기다린다. 단, Worker가 죽으면 대기를 끝낸다.
         while True:
             try:
