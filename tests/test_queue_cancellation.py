@@ -24,14 +24,25 @@ class PendingGenerationCancellationTests(unittest.TestCase):
         self.queue.put((image_id, None, None, "prompt", future))
         return future
 
-    def test_requested_log_shows_waiting_count(self):
+    def test_requested_log_does_not_show_waiting_count(self):
         self.enqueue("already-waiting")
         with patch.object(main.naify_image_fetcher, "make_image_id", return_value="image-id"), \
                 patch.object(main.naify_image_fetcher, "fetch_image", return_value=b"webp"), \
                 patch.object(main, "print_log") as logger:
             response = main.get_image("prompt")
         self.assertEqual(response.body, b"webp")
-        logger.assert_any_call("image-id", "Requested | Waiting: 1")
+        logger.assert_any_call("image-id", "Requested")
+
+    def test_queued_log_shows_count_after_enqueuing(self):
+        self.enqueue("already-waiting")
+        worker = SimpleNamespace(is_alive=lambda: True)
+        future = SimpleNamespace(result=lambda timeout: b"webp")
+        with patch.object(naify_image_fetcher, "get_image_from_cache", return_value=None), \
+                patch.object(naify_image_fetcher, "Future", return_value=future), \
+                patch.object(naify_image_fetcher, "print_log") as logger:
+            data = naify_image_fetcher.fetch_image("image-id", None, None, "prompt", worker)
+        self.assertEqual(data, b"webp")
+        logger.assert_any_call("image-id", "Queued for generation | Waiting: 2")
 
     def test_cached_log_shows_waiting_count(self):
         self.enqueue("already-waiting")
