@@ -3,11 +3,13 @@ import unittest
 
 from PIL import Image
 
-from core.naify_image_optimizer import WEBP_METHOD, WEBP_QUALITY, optimize_image
+from core.naify_image_optimizer import WEBP_METHOD, optimize_image
+from core.naify_regeneration import make_regeneration_metadata, read_regeneration_metadata
+from core.naify_config import NaifyConfig
 
 
 class WebPOptimizationTests(unittest.TestCase):
-    def test_quality_80_preserves_metadata_and_dimensions(self):
+    def test_quality_90_preserves_metadata_and_dimensions(self):
         image = Image.new("RGB", (48, 32), (30, 120, 190))
         source = io.BytesIO()
         exif = Image.Exif()
@@ -25,8 +27,36 @@ class WebPOptimizationTests(unittest.TestCase):
             self.assertEqual(optimized.getexif()[270], "Naify regeneration prompt")
             self.assertEqual(optimized.info["xmp"], xmp)
             self.assertEqual(optimized.info["icc_profile"], icc_profile)
-        self.assertEqual(WEBP_QUALITY, 80)
+        self.assertEqual(NaifyConfig().cache.webp_quality, 90)
         self.assertEqual(WEBP_METHOD, 4)
+
+    def test_embedded_regeneration_settings_roundtrip(self):
+        original = Image.new("RGB", (50, 36), "blue")
+        exif = Image.Exif()
+        exif[37510] = b"NovelAI's original prompt metadata"
+        output = io.BytesIO()
+        original.save(output, format="WEBP", quality=100, exif=exif.tobytes())
+        config = NaifyConfig()
+        config.prompt.base_prompt = "best quality"
+        config.generation.steps = 35
+        metadata = make_regeneration_metadata("forest", "blue hair", "", "pink eyes", config)
+        compressed = optimize_image(output.getvalue(), quality=80, metadata=metadata)
+        restored = read_regeneration_metadata(compressed)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored["prompt"], "forest")
+        self.assertEqual(restored["char1"], "blue hair")
+        self.assertEqual(restored["char2"], "")
+        self.assertEqual(restored["char3"], "pink eyes")
+        self.assertEqual(restored["config"].generation.steps, 35)
+        self.assertEqual(restored["config"].prompt.base_prompt, "best quality")
+        with Image.open(io.BytesIO(compressed)) as image:
+            self.assertEqual(image.getexif()[37510], b"NovelAI's original prompt metadata")
+            self.assertEqual(image.size, original.size)
+
+    def test_legacy_image_without_naify_metadata_is_not_regenerable(self):
+        output = io.BytesIO()
+        Image.new("RGB", (24, 24), "green").save(output, "WEBP")
+        self.assertIsNone(read_regeneration_metadata(output.getvalue()))
 
     def test_preserves_alpha(self):
         source = io.BytesIO()
