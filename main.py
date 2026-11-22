@@ -328,25 +328,8 @@ def cancel_pending_generation_requests(request: Request) -> dict:
     return response
 
 
-def parse_image_query(query_params) -> tuple[str, str, str, str, bool]:
-    """기존 소문자 prompt와 새 대문자 PROMPT/CHAR1~3를 구별한다."""
-    old_prompt = query_params.get("prompt")
-    new_prompt = query_params.get("PROMPT")
-    characters = tuple(query_params.get(f"CHAR{i}", "") for i in range(1, 4))
-    if old_prompt is not None and (new_prompt is not None or any(characters)):
-        raise fastapi.HTTPException(status_code=400, detail="Do not mix legacy prompt with PROMPT/CHAR")
-    if old_prompt is not None:
-        if not old_prompt.strip():
-            raise fastapi.HTTPException(status_code=400, detail="Empty prompt")
-        return "", old_prompt, "", "", True
-    if not (new_prompt or "").strip() and not any(char.strip() for char in characters):
-        raise fastapi.HTTPException(status_code=400, detail="At least one prompt is required")
-    return new_prompt or "", *characters, False
-
-
 @app.get("/get_image")
-def get_image(request: Request) -> fastapi.Response:
-    prompt, char1, char2, char3, legacy = parse_image_query(request.query_params)
+def get_image(prompt: str, char1: str = "", char2: str = "", char3: str = "") -> fastapi.Response:
 
     # 1. 종료 상태 검사 및 요청 수 증가
     with app.state.request_condition:
@@ -362,7 +345,7 @@ def get_image(request: Request) -> fastapi.Response:
     # 2. 등록에 성공한 요청만 try/finally로 관리
     try:
         # 이미지 ID 생성
-        image_id: str = naify_image_fetcher.make_image_id(prompt, char1, char2, char3, legacy=legacy)
+        image_id: str = naify_image_fetcher.make_image_id(prompt, char1, char2, char3)
 
         print_log(image_id, "Requested")
 

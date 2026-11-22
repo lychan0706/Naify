@@ -112,10 +112,8 @@ def cancel_pending_requests() -> int:
     return cancelled_count
 
 
-def make_image_id(prompt: str, char1: str = "", char2: str = "", char3: str = "", *, legacy: bool = False) -> str:
-    # 과거 소문자 ?prompt= 요청은 기존 캐시 파일을 그대로 사용한다.
-    if legacy:
-        return sha256(char1.encode("utf-8")).hexdigest()
-    # 구분 가능한 직렬화로 캐릭터 순서와 경계를 보존한다.
-    payload = json.dumps(["naify-characters-v1", prompt, char1, char2, char3], ensure_ascii=False, separators=(",", ":"))
-    return sha256(payload.encode("utf-8")).hexdigest()
+def make_image_id(prompt: str, char1: str = "", char2: str = "", char3: str = "") -> str:
+    # 구형 캐시와 의미가 달라진 prompt가 충돌하지 않도록 버전 태그를 포함한다.
+    values = ["characters-v2", prompt, char1, char2, char3]
+    serialized = json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+    return sha256(serialized.encode("utf-8")).hexdigest()

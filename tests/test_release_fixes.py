@@ -229,8 +229,11 @@ class ReleaseFixTests(unittest.TestCase):
             prompt={"base_prompt": "masterpiece", "negative_prompt": "low quality"}
         )
         for count in range(4):
-            chars = ("red_hair", "blue_eyes", "green coat")
-            payload = naify_api_work.get_payload("two_people, outdoors", *(chars[i] if i < count else "" for i in range(3)), config)
+            chars = ("red hair", "blue eyes", "green coat")
+            payload = naify_api_work.bulid_payload(
+                config, "two people, outdoors",
+                *(chars[i] if i < count else "" for i in range(3))
+            )
             params = payload["parameters"]
             self.assertEqual(payload["input"], "masterpiece, two people, outdoors")
             self.assertEqual(params["v4_prompt"]["caption"]["base_caption"], payload["input"])
@@ -238,21 +241,29 @@ class ReleaseFixTests(unittest.TestCase):
             self.assertEqual(len(params["v4_negative_prompt"]["caption"]["char_captions"]), count)
             self.assertFalse(params["v4_prompt"]["use_coords"])
             self.assertEqual(params["v4_negative_prompt"]["caption"]["base_caption"], "low quality")
-        self.assertEqual(naify_api_work.build_char_captions("", "blue_hair", "")[0]["char_caption"], "blue hair")
+        self.assertEqual(
+            naify_api_work.bulid_payload(config, "", "", "blue hair", "")["parameters"]
+            ["v4_prompt"]["caption"]["char_captions"][0]["char_caption"], "blue hair"
+        )
 
-    def test_legacy_query_and_new_query_are_distinct(self):
-        from hashlib import sha256
-        legacy = main.parse_image_query({"prompt": "1girl"})
-        self.assertEqual(legacy, ("", "1girl", "", "", True))
-        self.assertEqual(main.parse_image_query({"PROMPT": "park", "CHAR2": "red hair"}),
-                         ("park", "", "red hair", "", False))
-        old_id = naify_image_fetcher.make_image_id(*legacy[:4], legacy=legacy[4])
-        self.assertEqual(old_id, sha256(b"1girl").hexdigest())
-        self.assertNotEqual(old_id, naify_image_fetcher.make_image_id("1girl"))
-        self.assertNotEqual(naify_image_fetcher.make_image_id("park", "a", "b"),
-                            naify_image_fetcher.make_image_id("park", "b", "a"))
-        with self.assertRaises(HTTPException):
-            main.parse_image_query({"prompt": "old", "CHAR1": "new"})
+    def test_get_image_uses_lowercase_query_parameters(self):
+        import inspect
+        signature = inspect.signature(main.get_image)
+        self.assertEqual(list(signature.parameters), ["prompt", "char1", "char2", "char3"])
+        self.assertEqual(signature.parameters["prompt"].default, inspect.Parameter.empty)
+        for name in ("char1", "char2", "char3"):
+            self.assertEqual(signature.parameters[name].default, "")
+        self.assertFalse(hasattr(main, "parse_image_query"))
+
+    def test_character_cache_id_distinguishes_roles(self):
+        self.assertNotEqual(
+            naify_image_fetcher.make_image_id("park", "red", "blue"),
+            naify_image_fetcher.make_image_id("park", "blue", "red")
+        )
+        self.assertNotEqual(
+            naify_image_fetcher.make_image_id("park"),
+            naify_image_fetcher.make_image_id("park", "girl")
+        )
 
     def test_character_payload_sent_to_novelai(self):
         response = Mock(status_code=200, content=b"zip")

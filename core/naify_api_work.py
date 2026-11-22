@@ -54,48 +54,38 @@ def get_anlas_balance(naify_secrets: NaifySecrets) -> int | None:
         return remaining_anlas
 
 
-def normalize_prompt(prompt: str) -> str:
-    """URL 태그 표기를 NovelAI 프롬프트로 정규화한다."""
-    return ", ".join(part.strip().replace("_", " ") for part in prompt.split(",") if part.strip())
-
-
-def build_base_caption(base_prompt: str, prompt: str) -> str:
-    return ", ".join(part for part in (base_prompt.strip(), normalize_prompt(prompt)) if part)
-
-
-def build_char_captions(char1: str = "", char2: str = "", char3: str = "") -> list[dict]:
-    return [
-        {"char_caption": normalize_prompt(value), "centers": [{"x": 0.5, "y": 0.5}]}
-        for value in (char1, char2, char3) if value.strip()
-    ]
-
-
-def get_payload(
-    prompt: str, char1: str, char2: str, char3: str, naify_config: NaifyConfig
+def bulid_payload(
+    config: NaifyConfig, prompt: str, char1: str, char2: str, char3: str
 ) -> dict:
-    """공통 프롬프트 및 최대 3개의 캐릭터 프롬프트로 NAI 요청 본문을 조립한다."""
-    base_caption = build_base_caption(naify_config.prompt.base_prompt, prompt)
-    char_captions = build_char_captions(char1, char2, char3)
-    negative_caption = naify_config.prompt.negative_prompt
+    """공통 프롬프트와 캐릭터별 프롬프트를 NovelAI 생성 요청으로 구성한다."""
+    base_prompt = config.prompt.base_prompt.strip()
+    prompt = prompt.strip()
+    base_caption = ", ".join(value for value in (base_prompt, prompt) if value)
+
+    char_captions = [
+        {"char_caption": character, "centers": [{"x": 0.5, "y": 0.5}]}
+        for character in (char1, char2, char3)
+        if character.strip()
+    ]
     negative_char_captions = [
         {"char_caption": "", "centers": [{"x": 0.5, "y": 0.5}]}
         for _ in char_captions
     ]
-    generation = naify_config.generation
+
     return {
         "action": "generate",
         "input": base_caption,
-        "model": generation.model,
+        "model": config.generation.model,
         "parameters": {
-            "width": generation.width,
-            "height": generation.height,
+            "width": config.generation.width,
+            "height": config.generation.height,
             "n_samples": 1,
-            "negative_prompt": negative_caption,
-            "steps": generation.steps,
-            "scale": generation.prompt_guidance,
-            "sampler": generation.sampler,
-            "noise_schedule": generation.noise_schedule,
-            "cfg_rescale": generation.prompt_guidance_rescale,
+            "negative_prompt": config.prompt.negative_prompt,
+            "steps": config.generation.steps,
+            "scale": config.generation.prompt_guidance,
+            "sampler": config.generation.sampler,
+            "noise_schedule": config.generation.noise_schedule,
+            "cfg_rescale": config.generation.prompt_guidance_rescale,
             "params_version": 3,
             "image_format": "webp",
             "v4_prompt": {
@@ -108,7 +98,7 @@ def get_payload(
             },
             "v4_negative_prompt": {
                 "caption": {
-                    "base_caption": negative_caption,
+                    "base_caption": config.prompt.negative_prompt,
                     "char_captions": negative_char_captions
                 },
                 "legacy_uc": False,
@@ -128,7 +118,7 @@ def generate_image(
             timeout=120.0,
             url=NAI_API_URL,
             headers={"Authorization": f"Bearer {naify_secrets.nai_api_key}"},
-            json=get_payload(prompt, char1, char2, char3, naify_config)
+            json=bulid_payload(naify_config, prompt, char1, char2, char3)
         )
     except httpx.TimeoutException as exc:
         print_log(image_id, f"NovelAI request timed out: {type(exc).__name__}")
