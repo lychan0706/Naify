@@ -751,3 +751,21 @@ button:disabled {
     .generation-queue-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .generation-queue-slot { height: 42px; }
 }
+
+/* Cached image detail: regenerate immediately using saved/current settings. */
+.image-dialog-regenerate {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 12px 0;
+}
+.image-dialog-regenerate button {
+    flex: 1 1 180px;
+    min-width: 0;
+    padding: 9px 12px;
+    font-size: 13px;
+}
+.image-dialog-regenerate button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
