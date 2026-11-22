@@ -99,9 +99,6 @@ def shutdown_server(app: fastapi.FastAPI, server: uvicorn.Server) -> None:
             queue.all_tasks_done.wait(timeout=1.0)
 
         worker_failed = bool(queue.unfinished_tasks)
-        if worker_failed:
-            print_log(content="Generation worker stopped before queue was drained")
-
     if not worker_failed:
         print_log(content="All generation tasks completed")
 
