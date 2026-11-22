@@ -75,8 +75,6 @@ naify_secrets: NaifySecrets = load_secrets()
 @app.get("/")
 def home() -> FileResponse:
 
-    print_log(content="got home request")
-
     response: FileResponse = FileResponse(WEB_DIR / "index.html")
 
     return response
@@ -106,8 +104,6 @@ async def stream_logs(request: Request):
 
 @app.get("/config")
 def get_config() -> NaifyConfig:
-
-    print_log(content="got config request")
 
     with config_lock:
         config = naify_config.model_copy(deep=True)
@@ -225,8 +221,6 @@ def activate_preset(name: str, request: Request) -> dict:
 @app.get("/secrets/status")
 def get_secrets_status() -> dict:
     
-    print_log(content="got secrets status request")
-
     is_configured = bool(naify_secrets.nai_api_key)
     
     secrets_status = {
