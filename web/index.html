@@ -843,7 +843,11 @@
                     return;
                 }
 
-                if (consumeGenerationLog(String(message))) {
+                const logMessage = String(message);
+                const queueOnlyEvent = consumeGenerationLog(logMessage);
+                const queueStatusLine = /^\[\d{2}:\d{2}:\d{2}\.\d{3}\] [0-9a-f]{6} : (Queued for generation|Generating\.\.\.)(?: \|.*)?$/.test(logMessage);
+                if (queueOnlyEvent || queueStatusLine) {
+                    // 대기열 시각화에는 반영하되 일반 로그 창에서는 숨긴다.
                     if (Number.isSafeInteger(id) && id > 0) lastRenderedId = id;
                     return;
                 }
