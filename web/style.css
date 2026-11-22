@@ -650,3 +650,104 @@ button:disabled {
         min-width: 0;
     }
 }
+
+
+/* 실시간 이미지 생성 대기열: 로그 창 바로 아래 */
+.generation-queue {
+    margin-top: 16px;
+    padding: 16px;
+    background: #29292c;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+.generation-queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+.generation-queue-header h3 {
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+.generation-queue-header > span {
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+.generation-queue-slots {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 8px;
+}
+.generation-queue-slot {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    height: 48px;
+    overflow: hidden;
+    border: 1px solid #57595f;
+    background: #404148;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font: 14px Consolas, "D2Coding", monospace;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.generation-queue-slot.waiting { padding: 0 8px; }
+.generation-queue-slot.running {
+    border-color: #30b78d;
+    background: #26473f;
+    color: white;
+}
+.generation-queue-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0;
+    background: #1b9d62;
+    transition: width 0.17s linear;
+}
+.generation-queue-elapsed {
+    position: relative;
+    z-index: 1;
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px #171717;
+}
+.generation-queue-slot.overflow { color: #c7c7cb; }
+.generation-queue-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 11px;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+.generation-queue-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+.generation-queue-legend span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.generation-queue-legend i {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+.queue-legend-running { background: #1b9d62; }
+.queue-legend-waiting { background: #57595f; }
+@media (max-width: 680px) {
+    .generation-queue-slots { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .generation-queue-slot { height: 42px; }
+}
