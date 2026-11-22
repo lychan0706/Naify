@@ -47,8 +47,7 @@ def get_anlas_balance(naify_secrets: NaifySecrets) -> int | None:
         subscription_info_response.raise_for_status()
         anlas_data = subscription_info_response.json().get("trainingStepsLeft")
         remaining_anlas = anlas_data["fixedTrainingStepsLeft"] + anlas_data["purchasedTrainingSteps"]
-    except Exception as e:
-        print_log(content=f"잔여 Anlas 조회 실패: {e}")
+    except Exception:
         return None
     else:
         return remaining_anlas
