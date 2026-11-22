@@ -92,9 +92,10 @@ class CacheConfig(BaseModel):
         gt=0
     )
 
-    max_images: int = Field(
-        default=100,
-        gt=0
+    webp_quality: int = Field(
+        default=90,
+        ge=1,
+        le=100
     )
 
 
