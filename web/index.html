@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Naify Manager</title>
-    <link rel="stylesheet" href="/static/style.css?v=queue-progress-1">
+    <link rel="stylesheet" href="/static/style.css?v=regenerate-1">
 </head>
 <body>
     <!-- 사이트 상단 제목 및 설명 -->
@@ -124,6 +124,10 @@
             <input id="image-dialog-path" readonly>
             <button type="button" id="image-dialog-copy">복사</button>
         </div>
+        <div class="image-dialog-regenerate">
+            <button type="button" id="image-regenerate-original" disabled>원본 설정으로 재생성</button>
+            <button type="button" id="image-regenerate-current" disabled>현재 설정으로 재생성</button>
+        </div>
         <div class="image-dialog-footer">
             <p id="image-dialog-status" role="status"></p>
         </div>
@@ -134,7 +138,7 @@
         <fieldset class="cache-settings-fields">
             <legend>캐시 설정</legend>
             <div><label for="max_cache_size">최대 캐시 용량(MB):</label> <input type="number" id="max_cache_size" min="1"></div>
-            <div><label for="max_images">최대 이미지 개수:</label> <input type="number" id="max_images" min="1"></div>
+            <div><label for="webp_quality">WebP 압축 품질(Q):</label> <input type="number" id="webp_quality" min="1" max="100" value="90"></div>
         </fieldset>
         <details class="cache-image-details" id="cache-gallery-panel">
             <summary>캐시 이미지 확인 <span class="summary-hint">클릭하여 펼치기</span></summary>
@@ -297,7 +301,7 @@
                 getInput("base_prompt").value = config.prompt.base_prompt;
                 getInput("negative_prompt").value = config.prompt.negative_prompt;
                 getInput("max_cache_size").value = config.cache.max_cache_size / (1024 * 1024);
-                getInput("max_images").value = config.cache.max_images;
+                getInput("webp_quality").value = config.cache.webp_quality;
             } catch (error) {
                 statusElement.textContent = "설정 정보를 불러오지 못했습니다.";
                 console.error("[Naify] 설정 조회 실패:", error);
@@ -326,7 +330,7 @@
                 },
                 cache: {
                     max_cache_size: (Number(getInput("max_cache_size").value) * 1024 * 1024),
-                    max_images: Number(getInput("max_images").value)
+                    webp_quality: Number(getInput("webp_quality").value)
                 }
             };
 
@@ -508,11 +512,67 @@
             }
         }
 
-        function showImageDialog(image) {
-            getInput("image-dialog-preview").src = `/cache/image/${encodeURIComponent(image.id)}`;
+        let selectedCacheImage = null;
+        let regenerationBusy = false;
+
+        function setRegenerationButtonsDisabled(disabled) {
+            getInput("image-regenerate-original").disabled = disabled;
+            getInput("image-regenerate-current").disabled = disabled;
+        }
+
+        async function showImageDialog(image) {
+            selectedCacheImage = image;
+            const imageId = image.id;
+            getInput("image-dialog-preview").src = `/cache/image/${encodeURIComponent(imageId)}`;
             getInput("image-dialog-path").value = image.path;
-            getInput("image-dialog-status").textContent = "";
+            getInput("image-dialog-status").textContent = "재생성 정보 확인 중...";
+            setRegenerationButtonsDisabled(true);
             getInput("image-dialog").showModal();
+            try {
+                const response = await fetch(`/cache/image/${encodeURIComponent(imageId)}/regeneration`, { cache: "no-store" });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                if (selectedCacheImage?.id !== imageId) return;
+                setRegenerationButtonsDisabled(regenerationBusy || !data.available);
+                getInput("image-dialog-status").textContent = data.available
+                    ? "" : "이 이미지에는 Naify 재생성 정보가 없습니다.";
+            } catch (error) {
+                if (selectedCacheImage?.id === imageId) {
+                    getInput("image-dialog-status").textContent = "재생성 정보를 읽지 못했습니다.";
+                }
+            }
+        }
+
+        async function regenerateSelectedImage(mode) {
+            if (!selectedCacheImage || regenerationBusy) return;
+            const imageId = selectedCacheImage.id;
+            const status = getInput("image-dialog-status");
+            regenerationBusy = true;
+            setRegenerationButtonsDisabled(true);
+            status.textContent = "재생성 요청 중...";
+            try {
+                const response = await fetch(`/cache/image/${encodeURIComponent(imageId)}/regenerate/${mode}`, {
+                    method: "POST",
+                    headers: { "X-Naify-Action": "regenerate-image" }
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => null);
+                    throw new Error(payload?.detail || `HTTP ${response.status}`);
+                }
+                await loadCacheGallery();
+                if (selectedCacheImage?.id === imageId) {
+                    // File contents change under the same hash; bypass the browser image cache.
+                    getInput("image-dialog-preview").src = `/cache/image/${encodeURIComponent(imageId)}?t=${Date.now()}`;
+                    showTemporaryStatus(status, "재생성 완료!");
+                }
+            } catch (error) {
+                if (selectedCacheImage?.id === imageId) {
+                    showTemporaryStatus(status, `재생성 실패: ${error.message}`, 7000);
+                }
+            } finally {
+                regenerationBusy = false;
+                if (selectedCacheImage?.id === imageId) setRegenerationButtonsDisabled(false);
+            }
         }
 
         async function deleteCachedImage(image, button) {
@@ -891,6 +951,8 @@
         getInput("preset-rename").addEventListener("click", () => managePreset("rename"));
         getInput("preset-delete").addEventListener("click", () => managePreset("delete"));
         getInput("image-dialog-close").addEventListener("click", () => getInput("image-dialog").close());
+        getInput("image-regenerate-original").addEventListener("click", () => regenerateSelectedImage("original"));
+        getInput("image-regenerate-current").addEventListener("click", () => regenerateSelectedImage("current"));
         getInput("image-dialog").addEventListener("click", (event) => {
             const dialog = event.currentTarget;
             const bounds = dialog.getBoundingClientRect();
