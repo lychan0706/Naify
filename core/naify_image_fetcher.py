@@ -1,6 +1,7 @@
 from concurrent.futures import Future, TimeoutError as FutureTimeoutError
 from queue import Queue, Empty
 from hashlib import sha256
+import json
 from core.naify_cache import get_image_from_cache
 from core.naify_api_work import generate_image
 from core.naify_utility import print_log
@@ -15,7 +16,7 @@ import time
 generation_request_queue = Queue()
 
 
-def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, prompt: str, worker_thread: threading.Thread) -> bytes:
+def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, prompt: str, worker_thread: threading.Thread, char1: str = "", char2: str = "", char3: str = "") -> bytes:
     # 캐시 확인과 파일 읽기는 하나의 잠금 안에서 처리한다.
     # 전체 삭제가 동시에 실행되어도 파일이 중간에 사라지지 않는다.
     image_bytes = get_image_from_cache(image_id)
@@ -27,7 +28,7 @@ def fetch_image(image_id: str, secrets: NaifySecrets, config: NaifyConfig, promp
             raise HTTPException(status_code=503, detail="Image generation worker stopped")
         print_log(image_id, "Queued for generation")
         future = Future()
-        generation_request_queue.put((image_id, secrets, config, prompt, future))
+        generation_request_queue.put((image_id, secrets, config, prompt, future, char1, char2, char3))
         # 큐가 길어도 정상적인 생성 작업은 기다린다. 단, Worker가 죽으면 대기를 끝낸다.
         while True:
             try:
@@ -49,7 +50,7 @@ def generation_request_queue_processor() -> None:
     print_log(content=f"Worker started | PID={os.getpid()} | Thread={threading.current_thread().name}")
 
     while True:
-        image_id, secrets, config, prompt, future = generation_request_queue.get()
+        image_id, secrets, config, prompt, future, char1, char2, char3 = generation_request_queue.get()
 
         try:
             # 큐에서 꺼낸 시점에도 캐시를 재조회해 중복 생성을 방지한다.
@@ -64,7 +65,7 @@ def generation_request_queue_processor() -> None:
                 # 시작 시각 기록
                 process_initiation_time = time.perf_counter()
 
-                image_bytes = generate_image(image_id=image_id, naify_secrets=secrets, naify_config=config, prompt=prompt)
+                image_bytes = generate_image(image_id=image_id, naify_secrets=secrets, naify_config=config, prompt=prompt, char1=char1, char2=char2, char3=char3)
 
                 # 소요 시간 계산
                 process_termination_time = time.perf_counter()
@@ -93,7 +94,7 @@ def cancel_pending_requests() -> int:
 
     while True:
         try:
-            image_id, secrets, config, prompt, future = generation_request_queue.get_nowait()
+            image_id, secrets, config, prompt, future, *_ = generation_request_queue.get_nowait()
         except Empty:
             break
 
@@ -111,7 +112,10 @@ def cancel_pending_requests() -> int:
     return cancelled_count
 
 
-def make_image_id(prompt: str) -> str:
-    image_id = sha256(prompt.encode("utf-8")).hexdigest()
-
-    return image_id
+def make_image_id(prompt: str, char1: str = "", char2: str = "", char3: str = "", *, legacy: bool = False) -> str:
+    # 과거 소문자 ?prompt= 요청은 기존 캐시 파일을 그대로 사용한다.
+    if legacy:
+        return sha256(char1.encode("utf-8")).hexdigest()
+    # 구분 가능한 직렬화로 캐릭터 순서와 경계를 보존한다.
+    payload = json.dumps(["naify-characters-v1", prompt, char1, char2, char3], ensure_ascii=False, separators=(",", ":"))
+    return sha256(payload.encode("utf-8")).hexdigest()
