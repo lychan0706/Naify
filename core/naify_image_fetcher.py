@@ -8,7 +8,6 @@ from core import naify_cache
 from core.naify_config import NaifyConfig, NaifySecrets
 from fastapi import HTTPException
 import threading
-import os
 import time
 
 
@@ -45,8 +44,6 @@ def generation_request_queue_processor() -> None:
     이미지 생성 요청 큐의 요청들을 관리하는 함수.
     캐시를 재조회해 중복 생성을 막는다.
     """
-
-    print_log(content=f"Worker started | PID={os.getpid()} | Thread={threading.current_thread().name}")
 
     while True:
         image_id, secrets, config, prompt, future, char1, char2, char3 = generation_request_queue.get()
